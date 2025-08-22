@@ -2,6 +2,8 @@
 
 A classic arcade-style game reminiscent of Pac-Man, built entirely with HTML, CSS, and JavaScript in a single file! Navigate the maze, eat all the pellets, avoid the ghosts, and aim for the high score!
 
+try it out (https://code24x7-r.github.io/pacclone/)[here]
+
 ✨ Features
 
 Classic Gameplay: Familiar maze-chasing action with pellets and power-ups.
