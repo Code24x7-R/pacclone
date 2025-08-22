@@ -1,0 +1,2299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pacclone Arcade #2.1</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #000;
+            color: #fff;
+            font-family: monospace; /* Fallback to monospace for a retro feel */
+            overflow: hidden; /* Prevent scrollbars */
+        }
+        canvas {
+            background-color: #000;
+            border: 2px solid #fff;
+            display: block;
+            margin-bottom: 20px;
+        }
+        /* Hide game elements by default until the game starts */
+        #game-info, canvas, #controls-info {
+            display: none;
+        }
+        #game-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 600px; /* Match canvas width */
+            margin-bottom: 10px;
+            font-size: 1.2em;
+            flex-wrap: wrap; /* Allow wrapping for smaller screens */
+            gap: 10px;
+        }
+        #gamepad-status {
+            color: #aaa;
+        }
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2em;
+            color: yellow;
+            text-align: center;
+            background-color: rgba(0, 0, 0, 0.85);
+            padding: 20px 40px;
+            border-radius: 10px;
+            border: 2px solid #fff;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            width: 80%;
+            max-width: 500px;
+        }
+        #message h1 {
+            font-size: 2.5em;
+            margin: 0 0 15px 0;
+            color: yellow;
+            text-shadow: 3px 3px 0px #f00;
+            letter-spacing: 4px;
+        }
+        #high-scores {
+            width: 100%;
+        }
+        #high-scores table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.6em;
+            margin-bottom: 20px;
+        }
+        #high-scores th, #high-scores td {
+            padding: 5px;
+            text-align: center;
+        }
+        #high-scores th {
+            color: cyan;
+            border-bottom: 1px solid cyan;
+        }
+        #high-scores td:nth-child(1) { text-align: right; padding-right: 15px; color: #ccc; } /* Rank */
+        #high-scores td:nth-child(2) { text-align: right; padding-right: 15px; } /* Score */
+        #high-scores td:nth-child(3) { text-align: left; } /* Name */
+
+        #message-buttons {
+            display: flex;
+            gap: 15px;
+        }
+        #message-buttons button {
+            padding: 10px 20px;
+            font-size: 0.8em;
+            font-family: monospace;
+            color: #000;
+            background-color: #fff;
+            border: 2px solid yellow;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        #message-buttons button:hover {
+            background-color: yellow;
+            color: #000;
+        }
+        #highscore-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+        }
+        #highscore-form input {
+            width: 4em;
+            height: 1.5em;
+            font-size: 1em;
+            text-align: center;
+            background-color: #111;
+            color: #fff;
+            border: 2px solid yellow;
+            font-family: monospace;
+            text-transform: uppercase;
+        }
+        #highscore-form button {
+            font-size: 0.6em;
+            padding: 8px 16px;
+        }
+        #mute-button {
+            background-color: #111;
+            color: #fff;
+            border: 1px solid #fff;
+            font-family: monospace;
+            cursor: pointer;
+            padding: 5px 10px;
+            font-size: 0.8em;
+        }
+        #mute-button:hover {
+            background-color: #333;
+        }
+        #speed-control {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.8em;
+        }
+        #speed-control input[type="range"] {
+            vertical-align: middle;
+        }
+        #speed-value {
+            width: 3em;
+            text-align: right;
+        }
+        #controls-info {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #aaa;
+        }
+        /* --- Touch Controls --- */
+        #touch-controls {
+            display: none; /* Hidden by default, JS will show it */
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            height: 150px;
+            pointer-events: none; /* Container doesn't block clicks, children will override */
+            z-index: 10;
+        }
+        #dpad {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 150px;
+            height: 150px;
+            display: grid;
+            grid-template-columns: 50px 50px 50px;
+            grid-template-rows: 50px 50px 50px;
+            pointer-events: auto; /* This area is interactive */
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .dpad-btn {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            position: relative;
+        }
+        .dpad-btn:active {
+            background-color: rgba(255, 255, 255, 0.5);
+        }
+        #dpad-up {
+            grid-column: 2;
+            grid-row: 1;
+            border-radius: 5px 5px 0 0;
+        }
+        #dpad-down {
+            grid-column: 2;
+            grid-row: 3;
+            border-radius: 0 0 5px 5px;
+        }
+        #dpad-left {
+            grid-column: 1;
+            grid-row: 2;
+            border-radius: 5px 0 0 5px;
+        }
+        #dpad-right {
+            grid-column: 3;
+            grid-row: 2;
+            border-radius: 0 5px 5px 0;
+        }
+        .dpad-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            border-style: solid;
+            border-color: transparent;
+        }
+        #dpad-up::after {
+            border-width: 0 10px 15px 10px;
+            border-bottom-color: rgba(255, 255, 255, 0.8);
+            transform: translate(-50%, -60%);
+        }
+        #dpad-down::after {
+            border-width: 15px 10px 0 10px;
+            border-top-color: rgba(255, 255, 255, 0.8);
+            transform: translate(-50%, -40%);
+        }
+        #dpad-left::after {
+            border-width: 10px 15px 10px 0;
+            border-right-color: rgba(255, 255, 255, 0.8);
+            transform: translate(-60%, -50%);
+        }
+        #dpad-right::after {
+            border-width: 10px 0 10px 15px;
+            border-left-color: rgba(255, 255, 255, 0.8);
+            transform: translate(-40%, -50%);
+        }
+        #dash-button-touch {
+            position: absolute;
+            bottom: 15px; /* Aligned with joystick area */
+            right: 15px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 0, 0.4);
+            border: 2px solid yellow;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            font-family: monospace;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+            pointer-events: auto; /* Interactive */
+            user-select: none; /* Prevent text selection */
+            -webkit-user-select: none; /* for iOS */
+            -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+        }
+        #dash-button-touch:active {
+            background-color: rgba(255, 255, 0, 0.7);
+        }
+    </style>
+
+
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="game-info">
+        <div id="score">Score: 0</div>
+        <div id="lives">Lives: 3</div>
+        <div id="dash-status">Dash: Ready</div>
+        <div id="gamepad-status">Controller: Disconnected</div>
+        <div id="speed-control">
+            <label for="speed-slider">Speed:</label>
+            <input type="range" id="speed-slider" min="0.5" max="2" step="0.1" value="1" title="Adjust Game Speed">
+            <span id="speed-value">1.0x</span>
+        </div>
+        <button id="mute-button" title="Toggle Sound (M)">Mute</button>
+    </div>
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+    <div id="message">
+        <div id="message-text"></div>
+        <div id="message-buttons"></div>
+    </div>
+    <div id="controls-info">
+        Use Arrow Keys to Move | P to Pause | Space to Dash | R to Reset
+    </div>
+    <div id="touch-controls">
+        <div id="dpad">
+            <div id="dpad-up" class="dpad-btn"></div>
+            <div id="dpad-down" class="dpad-btn"></div>
+            <div id="dpad-left" class="dpad-btn"></div>
+            <div id="dpad-right" class="dpad-btn"></div>
+        </div>
+        <div id="dash-button-touch">DASH</div>
+    </div>
+
+
+    <script>
+        // --- Game Constants ---
+        const TILE_SIZE = 30;
+        const MAP_WIDTH = 20; // 600 / 30
+        const MAP_HEIGHT = 20; // 600 / 30
+        const DASH_DURATION = 200; // ms for visual effect
+        const DASH_TILES = 3; // How many tiles to jump
+        const HIGH_SCORES_KEY = 'paccloneHighScores';
+        const MAX_HIGH_SCORES = 10;
+        const GHOST_RELEASE_THRESHOLDS = {
+            'blinky': 5,
+            'pinky': 15,
+            'inky': 30,
+            'clyde': 50
+        };
+
+        // Map Legend:
+        // 0: Ghost House Interior Path (only for inHouse, exitingHouse, eaten ghosts)
+        // 1: Wall
+        // 2: Pellet
+        // 3: Power-up
+        // 4: Empty (eaten pellet/power-up)
+        // 6: Ghost Exit/Entry Path (gateway for ghosts, accessible to all ghost states except 'inHouse' directly)
+        let INITIAL_MAP = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
+            [1,2,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,2,1],
+            [1,3,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,3,1],
+            [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+            [1,2,1,1,1,2,1,2,1,1,1,1,2,1,2,1,1,1,2,1],
+            [1,2,2,2,2,2,1,2,2,2,2,2,2,1,2,2,2,2,2,1],
+            [1,1,1,1,1,2,1,1,1,6,6,1,1,1,2,1,1,1,1,1], // Ghost Exit Path (new type 6)
+            [0,0,0,0,1,2,1,0,0,0,0,0,0,1,2,1,0,0,0,0], // Tunnels (0)
+            [1,1,1,1,1,2,1,0,0,0,0,0,0,1,2,1,1,1,1,1], // Ghost house walls (1) - with open door (0s)
+            [1,2,2,2,2,2,2,0,1,0,0,1,0,2,2,2,2,2,2,1], // Ghost house interior (0)
+            [1,1,1,1,1,2,1,0,1,1,1,1,0,1,2,1,1,1,1,1],
+            [0,0,0,0,1,2,1,0,0,0,0,0,0,1,2,1,0,0,0,0], // Tunnels (0)
+            [1,1,1,1,1,2,1,0,1,1,1,1,0,1,2,1,1,1,1,1],
+            [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+            [1,2,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,2,1],
+            [1,3,2,2,1,2,2,2,2,2,2,2,2,2,2,1,2,2,3,1],
+            [1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1],
+            [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        // --- Game State Variables ---
+        let canvas, ctx;
+        let map; // Current game map, mutable
+        let pacman;
+        let ghosts = [];
+        let score = 0;
+        let lives = 3;
+        let highScores = [];
+        let pelletsRemaining;
+        let pelletsEatenThisLife = 0;
+        let gameRunning = false;
+        let paused = false;
+        let isGameOver = false;
+        let gameOverTimer = 0;
+        let ghostFrightenedTimer = 0;
+        let nextHighScoreThreshold = 5000;
+        const FRIGHTENED_DURATION = 8000; // 8 seconds
+        const GHOST_FRIGHTENED_SPEED_MULTIPLIER = 0.5;
+        const GHOST_NORMAL_SPEED_MULTIPLIER = 0.8; // Slightly slower than Pac-Man
+        const PACMAN_SPEED_PPS = 150; // Pixels per second
+        let lastFrameTime = 0;
+        let animationFrameId;
+        let gameSpeedMultiplier = 1.0;
+
+        // --- Ghost AI Mode ---
+        let ghostMode = 'scatter'; // Start with scatter
+        let ghostModeTimer = 0;
+        let modeCycleIndex = 0;
+        const MODE_CYCLES = [ // duration in ms, mode
+            { duration: 7000, mode: 'scatter' },
+            { duration: 20000, mode: 'chase' },
+            { duration: 7000, mode: 'scatter' },
+            { duration: 20000, mode: 'chase' },
+            { duration: 5000, mode: 'scatter' },
+            { duration: 20000, mode: 'chase' },
+            { duration: 5000, mode: 'scatter' },
+            { duration: Infinity, mode: 'chase' }, // Permanent chase
+        ];
+
+        // Pac-Man move sound
+        let playedChompThisFrame = false;
+
+        // Ghost house exit point: A clear tile just outside the gate
+        const GHOST_EXIT_TILE_X = 9.5;
+        const GHOST_EXIT_TILE_Y = 6.5;
+        
+        // --- Gamepad State ---
+        let gamepadIndex = null;
+        let lastButtons = [];
+
+        // --- Audio Context & Sounds ---
+        let audioContext;
+        const sounds = {};
+        let isMuted = false;
+        let muteButton;
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            updateMuteButtonDisplay();
+        }
+
+        function updateMuteButtonDisplay() {
+            if (muteButton) {
+                muteButton.textContent = isMuted ? 'Unmute' : 'Mute';
+                muteButton.title = isMuted ? 'Toggle Sound On (M)' : 'Toggle Sound Off (M)';
+            }
+        }
+
+        function initializeAudio() {
+            if (audioContext) {
+                // If context exists but is suspended, resume it.
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+                return;
+            }
+            try {
+                // Create the context if it doesn't exist.
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.error("Web Audio API is not supported in this browser.");
+            }
+        }
+
+        function playChompSound() {
+            if (isMuted || !audioContext) return;
+            const now = audioContext.currentTime;
+            const duration = 0.05; // 50ms
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            // A square wave sounds more "chiptuney" and distinct than a sine wave.
+            oscillator.type = 'square';
+
+            // Add a slight, random pitch variation to make chomping less monotonous.
+            const baseFreq = 300;
+            oscillator.frequency.setValueAtTime(baseFreq + (Math.random() * 50 - 25), now);
+
+            // A fast attack and decay envelope makes the sound "plucky" or "sucky".
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.1, now + 0.02); // Quick attack
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration); // Fast decay
+
+            oscillator.start(now);
+            oscillator.stop(now + duration);
+        }
+
+        function playMoveSound() {
+            if (isMuted || !audioContext) return;
+            const now = audioContext.currentTime;
+            const duration = 0.15; // 150ms
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            // Use a sine wave for a softer, more subdued sound.
+            oscillator.type = 'square';
+
+            // Lower the frequency and reduce the random pitch variation.
+            const baseFreq = 30;
+            oscillator.frequency.setValueAtTime(baseFreq + (Math.random() * 20 - 10), now );
+
+            // Reduce the gain (volume) significantly.
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.09, now + 0.02); // Slightly increased peak volume
+            gainNode.gain.exponentialRampToValueAtTime(0.005, now + duration );
+
+            oscillator.start(now);
+            oscillator.stop(now + duration );
+            
+        }
+
+        function playPowerupSound() {
+            if (isMuted || !audioContext) return;
+            const now = audioContext.currentTime;
+            const duration = 0.4; // 400ms
+
+            // An LFO modulates the main oscillator's frequency to create a "wobble".
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            const lfo = audioContext.createOscillator();
+            const lfoGain = audioContext.createGain();
+
+            lfo.type = 'sine';
+            lfo.frequency.setValueAtTime(10, now); // 10Hz wobble
+            lfoGain.gain.setValueAtTime(50, now); // 50Hz frequency deviation
+
+            lfo.connect(lfoGain);
+            lfoGain.connect(oscillator.frequency); // LFO modulates main oscillator frequency
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.type = 'triangle';
+            oscillator.frequency.setValueAtTime(440, now); // Base frequency A4
+
+            // Fade the sound in and out smoothly.
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.3, now + 0.05); // Fade in
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration); // Fade out
+
+            lfo.start(now);
+            lfo.stop(now + duration);
+            oscillator.start(now);
+            oscillator.stop(now + duration);
+        }
+
+        function playEatGhostSound() {
+            if (isMuted || !audioContext) return;
+            const now = audioContext.currentTime;
+            const duration = 0.2; // 200ms
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.type = 'square';
+            
+            // A rapid upward frequency sweep for a celebratory "zap" sound.
+            oscillator.frequency.setValueAtTime(500, now);
+            oscillator.frequency.exponentialRampToValueAtTime(1200, now + duration);
+
+            // Sharp attack and quick decay.
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.4, now + 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+            oscillator.start(now);
+            oscillator.stop(now + duration);
+        }
+
+        function playDeathSound() {
+            if (isMuted || !audioContext) return;
+            const now = audioContext.currentTime;
+            const duration = 0.6; // 600ms
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.type = 'sawtooth'; // A harsh, grating sound
+            
+            // A rapid downward frequency sweep, like a machine powering down.
+            oscillator.frequency.setValueAtTime(400, now);
+            oscillator.frequency.exponentialRampToValueAtTime(50, now + duration);
+
+            gainNode.gain.setValueAtTime(0.5, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+            oscillator.start(now);
+            oscillator.stop(now + duration);
+        }
+
+        function playGameOverSound() {
+            if (isMuted || !audioContext) return;
+            const now = audioContext.currentTime;
+            const durationPerNote = 0.25;
+            const notes = [220, 165, 110, 55]; // Descending arpeggio
+            const volume = 0.4;
+
+            notes.forEach((freq, index) => {
+                const startTime = now + index * durationPerNote;
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.type = 'triangle'; // A softer, more melancholic tone
+                oscillator.frequency.setValueAtTime(freq, startTime);
+
+                gainNode.gain.setValueAtTime(0, startTime);
+                gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.02);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + durationPerNote);
+
+                oscillator.start(startTime);
+                oscillator.stop(startTime + durationPerNote);
+            });
+        }
+        
+        function playDashSound() {
+            if (isMuted || !audioContext) return;
+            const now = audioContext.currentTime;
+            const duration = 0.3; // 300ms
+
+            // --- Tonal Part (the whoosh) ---
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.setValueAtTime(2500, now); // Start high
+            oscillator.frequency.exponentialRampToValueAtTime(150, now + duration);
+
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.2, now + 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+            oscillator.start(now);
+            oscillator.stop(now + duration);
+
+            // --- Noise Part (the static/phase effect) ---
+            const bufferSize = audioContext.sampleRate * duration;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const output = buffer.getChannelData(0);
+
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1; // White noise
+            }
+
+            const noiseSource = audioContext.createBufferSource();
+            noiseSource.buffer = buffer;
+            const noiseGain = audioContext.createGain();
+            
+            noiseSource.connect(noiseGain);
+            noiseGain.connect(audioContext.destination);
+
+            // Noise fades in and out quickly like a burst of static.
+            noiseGain.gain.setValueAtTime(0, now);
+            noiseGain.gain.linearRampToValueAtTime(0.15, now + 0.02); // Quick fade in
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration); // Quick fade out
+
+            noiseSource.start(now);
+            noiseSource.stop(now + duration);
+        }
+
+        function playCelebrateSound() {
+            if (isMuted || !audioContext) return;
+            const now = audioContext.currentTime;
+            const durationPerNote = 0.1;
+            const notes = [261.63, 329.63, 392.00, 523.25]; // C4, E4, G4, C5
+            const volume = 0.35;
+
+            notes.forEach((freq, index) => {
+                const startTime = now + index * durationPerNote;
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.type = 'triangle'; // A bright, happy tone
+                oscillator.frequency.setValueAtTime(freq, startTime);
+
+                // A quick attack and decay for each note
+                gainNode.gain.setValueAtTime(0, startTime);
+                gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + durationPerNote);
+
+                oscillator.start(startTime);
+                oscillator.stop(startTime + durationPerNote);
+            });
+        }
+
+        function playHighScoreSound() {
+            if (isMuted || !audioContext) return;
+            const now = audioContext.currentTime;
+            const noteDuration = 0.08;
+            const gap = 0.02;
+            const startTime = now + 0.1; // Small delay
+            const volume = 0.35;
+
+            // Notes for a Pac-Man style jingle (C5, E5, G5, C6, G5, E5, C5)
+            const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 659.25, 523.25];
+
+            notes.forEach((freq, index) => {
+                const noteStartTime = startTime + index * (noteDuration + gap);
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.type = 'square'; // Classic arcade sound
+                oscillator.frequency.setValueAtTime(freq, noteStartTime);
+
+                // A quick, sharp envelope for each note
+                gainNode.gain.setValueAtTime(0, noteStartTime);
+                gainNode.gain.linearRampToValueAtTime(volume, noteStartTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, noteStartTime + noteDuration);
+
+                oscillator.start(noteStartTime);
+                oscillator.stop(noteStartTime + noteDuration);
+            });
+        }
+
+        function playStartSound() {
+            if (isMuted || !audioContext) return;
+            const now = audioContext.currentTime;
+            const startTime = now + 0.1;
+            const volume = 0.35;
+
+            // intro jingle
+            const tempo = 150; // BPM
+            const eighthNote = 60 / tempo / 2;
+
+            const notes = [
+                { freq: 466.16, dur: eighthNote }, // A#4/Bb4
+                { freq: 0, dur: eighthNote/2 }, // Rest
+                { freq: 932.33, dur: eighthNote }, // A#5/Bb5
+                { freq: 783.99, dur: eighthNote }, // G5
+                { freq: 698.46, dur: eighthNote }, // F5
+                { freq: 622.25, dur: eighthNote }, // D#5/Eb5
+                { freq: 0, dur: eighthNote/2 }, // Rest
+                { freq: 698.46, dur: eighthNote }, // F5
+                { freq: 622.25, dur: eighthNote }, // D#5/Eb5
+                { freq: 523.25, dur: eighthNote }, // C5
+                { freq: 466.16, dur: eighthNote }, // A#4/Bb4
+                { freq: 0, dur: eighthNote/2 }, // Rest
+                { freq: 523.25, dur: eighthNote }, // C5
+                { freq: 466.16, dur: eighthNote }, // A#4/Bb4
+                { freq: 392.00, dur: eighthNote }, // G4
+                { freq: 349.23, dur: eighthNote * 2 } // F4
+            ];
+
+            let cumulativeTime = startTime;
+
+            notes.forEach(({ freq, dur }) => {
+                if (freq > 0) { // Don't play rests
+                    const noteStartTime = cumulativeTime;
+                    
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+
+                    oscillator.type = 'triangle';
+                    oscillator.frequency.setValueAtTime(freq, noteStartTime);
+
+                    gainNode.gain.setValueAtTime(0, noteStartTime);
+                    gainNode.gain.linearRampToValueAtTime(volume, noteStartTime + 0.01);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, noteStartTime + dur * 0.9);
+
+                    oscillator.start(noteStartTime);
+                    oscillator.stop(noteStartTime + dur);
+                }
+                cumulativeTime += dur;
+            });
+        }
+
+        // --- High Score Logic ---
+        function loadHighScores() {
+            try {
+                const storedScores = localStorage.getItem(HIGH_SCORES_KEY);
+                if (storedScores) {
+                    highScores = JSON.parse(storedScores);
+                } else {
+                    // Default scores if none exist
+                    highScores = [
+                        { name: 'TLP', score: 10000 },
+                        { name: 'HOE', score: 8000 },
+                        { name: 'ELN', score: 6000 },
+                        { name: 'OLP', score: 4000 },
+                        { name: '_YE', score: 2000 },
+                        { name: 'E_N', score: 1000 },
+                    ];
+                }
+                highScores.sort((a, b) => b.score - a.score);
+                highScores = highScores.slice(0, MAX_HIGH_SCORES);
+            } catch (e) {
+                console.error("Could not load high scores:", e);
+                highScores = [];
+            }
+        }
+
+        function saveHighScore(name, score) {
+            try {
+                highScores.push({ name, score });
+                highScores.sort((a, b) => b.score - a.score);
+                highScores = highScores.slice(0, MAX_HIGH_SCORES);
+                localStorage.setItem(HIGH_SCORES_KEY, JSON.stringify(highScores));
+            } catch (e) {
+                console.error("Could not save high scores:", e);
+            }
+        }
+
+        function checkHighScore(playerScore) {
+            const lowestScore = highScores.length < MAX_HIGH_SCORES ? 0 : highScores[MAX_HIGH_SCORES - 1].score;
+            return playerScore > lowestScore;
+        }
+
+        function displayHighScores(containerElement) {
+            let tableHTML = '<h2>HIGH SCORES</h2><div id="high-scores"><table>';
+            tableHTML += '<tr><th>RANK</th><th>SCORE</th><th>NAME</th></tr>';
+            highScores.forEach((entry, index) => {
+                tableHTML += `<tr><td>${index + 1}</td><td>${entry.score}</td><td>${entry.name}</td></tr>`;
+            });
+             // Add empty rows if less than max scores for consistent table size
+            for (let i = highScores.length; i < 5; i++) {
+                tableHTML += `<tr><td>${i + 1}</td><td>---</td><td>---</td></tr>`;
+            }
+            tableHTML += '</table></div>';
+            containerElement.innerHTML = tableHTML;
+        }
+
+        function promptForName(playerScore) {
+            // Hide game UI
+            document.getElementById('game-info').style.display = 'none';
+            document.getElementById('gameCanvas').style.display = 'none';
+            document.getElementById('controls-info').style.display = 'none';
+
+            const messageContainer = document.getElementById('message');
+            const messageText = document.getElementById('message-text');
+            const messageButtons = document.getElementById('message-buttons');
+
+            messageText.innerHTML = `<h1>NEW HIGH SCORE!</h1><div style="font-size: 0.8em">${playerScore}</div><small style="font-size: 0.5em">Enter your initials:</small>`;
+            messageText.style.color = 'lime';
+
+            messageButtons.innerHTML = `
+                <form id="highscore-form">
+                    <input type="text" id="name-input" maxlength="3" required pattern="[A-Z_]{3}" title="3 uppercase letters or underscores" autocomplete="off">
+                    <button type="submit">OK</button>
+                </form>
+            `;
+
+            const form = document.getElementById('highscore-form');
+            const input = document.getElementById('name-input');
+            input.focus();
+
+            input.addEventListener('input', () => {
+                input.value = input.value.toUpperCase().replace(/[^A-Z_]/g, '');
+            });
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const playerName = input.value.padEnd(3, '_').substring(0, 3);
+                saveHighScore(playerName, playerScore);
+                showStartScreen();
+            });
+
+            messageContainer.style.display = 'flex';
+        }
+
+
+        // --- Game Initialization ---
+        function initGame(isContinuation = false) {
+            // Ensure game elements are visible and message overlay is hidden
+            document.getElementById('game-info').style.display = 'flex';
+            document.getElementById('gameCanvas').style.display = 'block';
+            document.getElementById('controls-info').style.display = 'block';
+            document.getElementById('message').style.display = 'none';
+            document.getElementById('message-buttons').innerHTML = '';
+            
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+
+            if (isContinuation) {
+                playCelebrateSound();
+            }
+
+            if (!isContinuation) {
+                playStartSound();
+                score = 0;
+                lives = 3;
+                nextHighScoreThreshold = 5000; // Reset high score threshold
+            }
+
+            map = INITIAL_MAP.map(row => [...row]); // Deep copy the map
+
+            pacman = {
+                x: 9.5 * TILE_SIZE, // Center of tile
+                y: 14.5 * TILE_SIZE,
+                dx: 0, // Current movement direction X
+                dy: 0, // Current movement direction Y
+                radius: TILE_SIZE / 2 - 2,
+                color: 'yellow',
+                mouthOpen: true,
+                mouthAngle: 0,
+                animationFrame: 0,
+                nextDirection: { dx: 0, dy: 0 }, // Queued direction from last key press
+                lastDx: 0, // For mouth animation when stopped
+                lastDy: 0,
+                phaseDashAvailable: true,
+                isDashing: false,
+                dashTimer: 0,
+                lastTileX: 9, // Initial tile for sound trigger
+                lastTileY: 14,
+            };
+
+            ghosts = [
+                { id: 'blinky', x: 9.5 * TILE_SIZE, y: 8.5 * TILE_SIZE, color: 'red', originalColor: 'red', frightened: false, eaten: false, speed: GHOST_NORMAL_SPEED_MULTIPLIER, originalX: 9.5 * TILE_SIZE, originalY: 8.5 * TILE_SIZE, dx: 0, dy: 0, state: 'inHouse', idleTimer: Math.random() * 1000, reReleaseTimer: 0 },
+                { id: 'pinky', x: 9.5 * TILE_SIZE, y: 9.5 * TILE_SIZE, color: 'pink', originalColor: 'pink', frightened: false, eaten: false, speed: GHOST_NORMAL_SPEED_MULTIPLIER, originalX: 9.5 * TILE_SIZE, originalY: 9.5 * TILE_SIZE, dx: 0, dy: 0, state: 'inHouse', idleTimer: Math.random() * 1000, reReleaseTimer: 0 },
+                { id: 'inky', x: 8.5 * TILE_SIZE, y: 9.5 * TILE_SIZE, color: 'cyan', originalColor: 'cyan', frightened: false, eaten: false, speed: GHOST_NORMAL_SPEED_MULTIPLIER, originalX: 8.5 * TILE_SIZE, originalY: 9.5 * TILE_SIZE, dx: 0, dy: 0, state: 'inHouse', idleTimer: Math.random() * 1000, reReleaseTimer: 0 },
+                { id: 'clyde', x: 10.5 * TILE_SIZE, y: 9.5 * TILE_SIZE, color: 'orange', originalColor: 'orange', frightened: false, eaten: false, speed: GHOST_NORMAL_SPEED_MULTIPLIER, originalX: 10.5 * TILE_SIZE, originalY: 9.5 * TILE_SIZE, dx: 0, dy: 0, state: 'inHouse', idleTimer: Math.random() * 1000, reReleaseTimer: 0 }
+            ];
+
+            pelletsRemaining = 0;
+            for (let r = 0; r < MAP_HEIGHT; r++) {
+                for (let c = 0; c < MAP_WIDTH; c++) {
+                    if (map[r][c] === 2 || map[r][c] === 3) {
+                        pelletsRemaining++;
+                    }
+                }
+            }
+
+            ghostFrightenedTimer = 0;
+            pelletsEatenThisLife = 0;
+
+            // Reset ghost mode timer
+            modeCycleIndex = 0;
+            ghostMode = MODE_CYCLES[0].mode;
+            ghostModeTimer = MODE_CYCLES[0].duration;
+            
+            updateScoreDisplay();
+            updateLivesDisplay();
+            updateDashDisplay();
+            
+            // Set game state for the main loop
+            gameRunning = true;
+            paused = false;
+            isGameOver = false;
+        }
+
+        // --- Game Loop ---
+        function gameLoop(currentTime) {
+            const deltaTime = currentTime - lastFrameTime;
+            lastFrameTime = currentTime;
+
+            // State 1: Game Over sequence
+            if (isGameOver) {
+                handleGamepadInput(); // Allow restart
+                draw(); // Draw final frame of game
+                // Overlay "GAME OVER" text
+                ctx.font = '48px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = 'red';
+                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
+
+                gameOverTimer -= deltaTime;
+                if (gameOverTimer <= 0) {
+                    isGameOver = false; // Transition out of this state
+                    if (checkHighScore(score)) {
+                        promptForName(score);
+                    } else {
+                        showStartScreen();
+                    }
+                }
+            }
+            // State 2: Paused
+            else if (paused) {
+                handleGamepadInput(); // Allow unpause
+                draw(); // Draw current frame, but no update()
+            }
+            // State 3: Active Gameplay
+            else if (gameRunning) {
+                update(deltaTime);
+                draw();
+            }
+            // State 4: Start Screen / Inter-level
+            else {
+                // Game is not running, not paused, not game over. This is the start screen.
+                // The HTML overlay is visible. We just need to poll for gamepad.
+                handleGamepadInput();
+            }
+
+            // The loop continues, always.
+            requestAnimationFrame(gameLoop);
+        }
+
+
+        // --- Update Game State ---
+        function update(deltaTime) {
+            handleGamepadInput();
+            const effectiveDeltaTime = deltaTime * gameSpeedMultiplier;
+            playedChompThisFrame = false; // Reset every frame
+            let enteredNewTile = false;
+
+            if (pacman.isDashing) {
+                pacman.dashTimer -= effectiveDeltaTime;
+                if (pacman.dashTimer <= 0) {
+                    pacman.isDashing = false;
+                }
+            }
+            
+            // Pac-Man animation
+            pacman.animationFrame += effectiveDeltaTime;
+            if (pacman.animationFrame > 100) { // Adjust speed of mouth animation
+                pacman.mouthOpen = !pacman.mouthOpen;
+                pacman.animationFrame = 0;
+            }
+            pacman.mouthAngle = pacman.mouthOpen ? Math.PI / 4 : 0;
+
+            // Handle Pac-Man movement
+            if (!pacman.isDashing) {
+                movePacman(effectiveDeltaTime);
+            }
+
+            // Check if Pac-Man entered a new tile for sound trigger
+            const currentTileX = Math.floor(pacman.x / TILE_SIZE);
+            const currentTileY = Math.floor(pacman.y / TILE_SIZE);
+            if (pacman.lastTileX !== currentTileX || pacman.lastTileY !== currentTileY) {
+                enteredNewTile = true;
+                pacman.lastTileX = currentTileX;
+                pacman.lastTileY = currentTileY;
+            }
+
+            // Handle ghost frightened timer and Scatter/Chase modes
+            if (ghostFrightenedTimer > 0) {
+                ghostFrightenedTimer -= effectiveDeltaTime;
+                if (ghostFrightenedTimer <= 0) {
+                    ghosts.forEach(ghost => {
+                        // Only revert ghosts that were actually frightened.
+                        if (ghost.state === 'frightened') {
+                            ghost.frightened = false;
+                            ghost.speed = GHOST_NORMAL_SPEED_MULTIPLIER;
+                            ghost.state = ghostMode; // Revert to current global mode
+                        }
+                    });
+                }
+            } else {
+                 // Only cycle modes if not frightened
+                ghostModeTimer -= effectiveDeltaTime;
+                if (ghostModeTimer <= 0 && modeCycleIndex < MODE_CYCLES.length - 1) {
+                    modeCycleIndex++;
+                    ghostMode = MODE_CYCLES[modeCycleIndex].mode;
+                    ghostModeTimer = MODE_CYCLES[modeCycleIndex].duration;
+                    
+                    // Reverse direction of active ghosts when mode changes
+                    ghosts.forEach(ghost => {
+                        if (ghost.state === 'chase' || ghost.state === 'scatter') {
+                            ghost.state = ghostMode; // Update state
+                            ghost.dx = -ghost.dx;
+                            ghost.dy = -ghost.dy;
+                        }
+                    });
+                }
+            }
+
+
+            // --- Ghost Release Management ---
+            if (gameRunning && !paused) {
+                ghosts.forEach(ghost => {
+                    if (ghost.state === 'inHouse') {
+                        // Case 1: Ghost has been eaten and is on a re-release timer.
+                        if (ghost.reReleaseTimer > 0) {
+                            ghost.reReleaseTimer -= effectiveDeltaTime;
+                            if (ghost.reReleaseTimer <= 0) {
+                                ghost.reReleaseTimer = 0; // Clear the timer
+                                // Snap position to prevent getting stuck due to animation bobble
+                                ghost.x = ghost.originalX;
+                                ghost.y = ghost.originalY;
+                                ghost.state = 'exitingHouse';
+                            }
+                        }
+                        // Case 2: Ghost is waiting for initial release based on pellets eaten.
+                        else {
+                            const threshold = GHOST_RELEASE_THRESHOLDS[ghost.id];
+                            if (threshold !== undefined && pelletsEatenThisLife >= threshold) {
+                                // Snap position to prevent getting stuck due to animation bobble
+                                ghost.x = ghost.originalX;
+                                ghost.y = ghost.originalY;
+                                ghost.state = 'exitingHouse';
+                            }
+                        }
+                    }
+                });
+            }
+
+
+            // Move ghosts
+            ghosts.forEach(ghost => moveGhost(ghost, effectiveDeltaTime));
+
+            // Check collisions
+            checkPelletCollision();
+            checkGhostCollision();
+
+            // Play pacman move sound if he entered a new tile and didn't eat a pellet
+            if (enteredNewTile && !playedChompThisFrame && (pacman.dx !== 0 || pacman.dy !== 0) && !paused) {
+                playMoveSound();
+            }
+
+            // Check win condition
+            if (pelletsRemaining === 0) {
+                levelComplete();
+            }
+        }
+
+        // --- Drawing Functions ---
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawMap();
+            drawPellets();
+            drawPacman();
+            drawGhosts();
+
+            if (paused) {
+                const messageContainer = document.getElementById('message');
+                const messageText = document.getElementById('message-text');
+                
+                let pauseHTML = "PAUSED<br>";
+                if (gamepadIndex === null) {
+                    pauseHTML += "<small style='font-size: 0.6em; color: #ccc;'>Press a button on your controller to connect.</small><br>";
+                }
+                
+                messageText.innerHTML = pauseHTML;
+                messageText.style.color = 'yellow';
+                
+                document.getElementById('message-buttons').innerHTML = '';
+                messageContainer.style.display = 'flex';
+            }
+        }
+
+        function drawMap() {
+            for (let r = 0; r < MAP_HEIGHT; r++) {
+                for (let c = 0; c < MAP_WIDTH; c++) {
+                    const tileType = map[r][c];
+                    if (tileType === 1) { // Wall
+                        ctx.fillStyle = 'blue';
+                        ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    } else if (tileType === 0 || tileType === 6) { // Ghost house interior or exit path
+                        ctx.fillStyle = '#202028'; // A dark, slightly blue-ish grey
+                        ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+        }
+
+        function drawPellets() {
+            for (let r = 0; r < MAP_HEIGHT; r++) {
+                for (let c = 0; c < MAP_WIDTH; c++) {
+                    if (map[r][c] === 2) { // Pellet
+                        ctx.fillStyle = 'grey';
+                        ctx.beginPath();
+                        ctx.arc(c * TILE_SIZE + TILE_SIZE / 2, r * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE / 8, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (map[r][c] === 3) { // Power-up
+                        ctx.fillStyle = 'darkred';
+                        ctx.beginPath();
+                        ctx.arc(c * TILE_SIZE + TILE_SIZE / 2, r * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE / 4, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+        }
+
+        function drawPacman() {
+            if (pacman.isDashing) {
+                ctx.globalAlpha = 0.5;
+            }
+
+            ctx.fillStyle = pacman.color;
+            ctx.beginPath();
+            let startAngle, endAngle;
+            let directionAngle = 0; // 0: right, PI: left, PI/2: down, -PI/2: up
+
+            // Determine direction for mouth animation
+            if (pacman.dx > 0) directionAngle = 0;
+            else if (pacman.dx < 0) directionAngle = Math.PI;
+            else if (pacman.dy > 0) directionAngle = Math.PI / 2;
+            else if (pacman.dy < 0) directionAngle = -Math.PI / 2;
+            // If stopped, keep last direction or default to right
+            else if (pacman.lastDx !== undefined) { // Use last non-zero direction for mouth
+                if (pacman.lastDx > 0) directionAngle = 0;
+                else if (pacman.lastDx < 0) directionAngle = Math.PI;
+                else if (pacman.lastDy > 0) directionAngle = Math.PI / 2;
+                else if (pacman.lastDy < 0) directionAngle = -Math.PI / 2;
+            }
+
+
+            startAngle = directionAngle + pacman.mouthAngle;
+            endAngle = directionAngle + Math.PI * 2 - pacman.mouthAngle;
+
+            ctx.arc(pacman.x, pacman.y, pacman.radius, startAngle, endAngle);
+            ctx.lineTo(pacman.x, pacman.y); // Draw line to center to close mouth
+            ctx.fill();
+
+            ctx.globalAlpha = 1.0; // Reset alpha
+        }
+
+        function drawGhosts() {
+            const ghostRadius = TILE_SIZE / 3; // Consistent radius for drawing and collision
+
+            ghosts.forEach(ghost => {
+                if (ghost.eaten) {
+                    // Draw only eyes if eaten
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(ghost.x - ghostRadius / 2, ghost.y - ghostRadius / 2, ghostRadius / 2, 0, Math.PI * 2);
+                    ctx.arc(ghost.x + ghostRadius / 2, ghost.y - ghostRadius / 2, ghostRadius / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = 'blue';
+                    ctx.beginPath();
+                    // Pupils look in direction of movement
+                    let pupilXOffset = 0;
+                    let pupilYOffset = 0;
+                    if (ghost.dx > 0) pupilXOffset = ghostRadius/4;
+                    else if (ghost.dx < 0) pupilXOffset = -ghostRadius/4;
+                    if (ghost.dy > 0) pupilYOffset = ghostRadius/4;
+                    else if (ghost.dy < 0) pupilYOffset = -ghostRadius/4;
+
+                    ctx.arc(ghost.x - ghostRadius / 2 + pupilXOffset, ghost.y - ghostRadius / 2 + pupilYOffset, ghostRadius / 4, 0, Math.PI * 2);
+                    ctx.arc(ghost.x + ghostRadius / 2 + pupilXOffset, ghost.y - ghostRadius / 2 + pupilYOffset, ghostRadius / 4, 0, Math.PI * 2); // Corrected Y for right eye pupil
+                    ctx.fill();
+                    return;
+                }
+
+                ctx.fillStyle = ghost.frightened ? 'blue' : ghost.color;
+                ctx.beginPath();
+                // Body
+                ctx.arc(ghost.x, ghost.y - ghostRadius / 2, ghostRadius, Math.PI, 0, false); // Top half
+                ctx.rect(ghost.x - ghostRadius, ghost.y - ghostRadius / 2, ghostRadius * 2, ghostRadius * 1.5); // Main body
+                // Skirt (scallops)
+                ctx.arc(ghost.x - ghostRadius * 0.6, ghost.y + ghostRadius, ghostRadius * 0.4, 0, Math.PI, true);
+                ctx.arc(ghost.x, ghost.y + ghostRadius, ghostRadius * 0.4, 0, Math.PI, true);
+                ctx.arc(ghost.x + ghostRadius * 0.6, ghost.y + ghostRadius, ghostRadius * 0.4, 0, Math.PI, true);
+                ctx.fill();
+
+                // Frightened state blinking (flash white)
+                if (ghost.frightened && ghostFrightenedTimer < FRIGHTENED_DURATION / 3 && Math.floor(ghostFrightenedTimer / 100) % 2 === 0) {
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(ghost.x, ghost.y - ghostRadius / 2, ghostRadius, Math.PI, 0, false);
+                    ctx.rect(ghost.x - ghostRadius, ghost.y - ghostRadius / 2, ghostRadius * 2, ghostRadius * 1.5);
+                    ctx.arc(ghost.x - ghostRadius * 0.6, ghost.y + ghostRadius, ghostRadius * 0.4, 0, Math.PI, true);
+                    ctx.arc(ghost.x, ghost.y + ghostRadius, ghostRadius * 0.4, 0, Math.PI, true);
+                    ctx.arc(ghost.x + ghostRadius * 0.6, ghost.y + ghostRadius, ghostRadius * 0.4, 0, Math.PI, true);
+                    ctx.fill();
+                }
+
+                // Eyes
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(ghost.x - ghostRadius / 2, ghost.y - ghostRadius / 2, ghostRadius / 2, 0, Math.PI * 2);
+                ctx.arc(ghost.x + ghostRadius / 2, ghost.y - ghostRadius / 2, ghostRadius / 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                // Pupils (look in direction of movement)
+                let pupilXOffset = 0;
+                let pupilYOffset = 0;
+                if (ghost.dx > 0) pupilXOffset = ghostRadius / 4;
+                else if (ghost.dx < 0) pupilXOffset = -ghostRadius / 4;
+                if (ghost.dy > 0) pupilYOffset = ghostRadius / 4;
+                else if (ghost.dy < 0) pupilYOffset = -ghostRadius / 4;
+
+                ctx.arc(ghost.x - ghostRadius / 2 + pupilXOffset, ghost.y - ghostRadius / 2 + pupilYOffset, ghostRadius / 4, 0, Math.PI * 2);
+                ctx.arc(ghost.x + ghostRadius / 2 + pupilXOffset, ghost.y - ghostRadius / 2 + pupilYOffset, ghostRadius / 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        /**
+         * Checks if an entity's next potential position would collide with a wall (map tile 1).
+         * This checks the four corners of the entity's bounding box.
+         * @param {number} currentX - Current X position of the entity's center.
+         * @param {number} currentY - Current Y position of the entity's center.
+         * @param {number} moveDx - Direction X (-1, 0, 1).
+         * @param {number} moveDy - Direction Y (-1, 0, 1).
+         * @param {number} entityRadius - Radius of the circular entity.
+         * @param {number} moveAmount - The distance the entity will move this frame.
+         * @returns {boolean} True if a wall is detected, false otherwise.
+         */
+        function isCollisionWithWall(currentX, currentY, moveDx, moveDy, entityRadius, moveAmount) {
+            if (moveDx === 0 && moveDy === 0) return false; // Not moving
+
+            // Calculate the potential next center position
+            const nextCenterX = currentX + moveDx * moveAmount;
+            const nextCenterY = currentY + moveDy * moveAmount;
+
+            // Define the four corners of the bounding box for the next position
+            // We check points slightly inside the radius to ensure we're checking the path
+            // and not just the exact edge which might miss a wall if speed is high.
+            const buffer = 0.2; // Small buffer to avoid floating point issues at tile edges
+            const checkPoints = [
+                { x: nextCenterX - entityRadius + buffer, y: nextCenterY - entityRadius + buffer }, // Top-left
+                { x: nextCenterX + entityRadius - buffer, y: nextCenterY - entityRadius + buffer }, // Top-right
+                { x: nextCenterX - entityRadius + buffer, y: nextCenterY + entityRadius - buffer }, // Bottom-left
+                { x: nextCenterX + entityRadius - buffer, y: nextCenterY + entityRadius - buffer }  // Bottom-right
+            ];
+
+            for (const point of checkPoints) {
+                let tileX = Math.floor(point.x / TILE_SIZE);
+                let tileY = Math.floor(point.y / TILE_SIZE);
+
+                // Handle tunnel wrapping for the check point
+                if (tileX < 0) tileX = MAP_WIDTH - 1;
+                else if (tileX >= MAP_WIDTH) tileX = 0;
+
+                // Check if the tile is a wall (map tile 1) or out of vertical bounds
+                if (tileY < 0 || tileY >= MAP_HEIGHT || (map[tileY] && map[tileY][tileX] === 1)) {
+                    return true; // Collision with a wall or vertical boundary
+                }
+            }
+            return false; // No wall detected
+        }
+
+        // --- Movement Logic ---
+        function movePacman(effectiveDeltaTime) {
+            const moveAmount = PACMAN_SPEED_PPS * (effectiveDeltaTime / 1000);
+            const currentTileX = Math.floor(pacman.x / TILE_SIZE);
+            const currentTileY = Math.floor(pacman.y / TILE_SIZE);
+            const alignmentThreshold = TILE_SIZE / 2 - 1; // Lenient threshold to prevent getting stuck after overshooting a turn.
+
+            // 1. Attempt to switch to `nextDirection` if possible
+            if (pacman.nextDirection.dx !== 0 || pacman.nextDirection.dy !== 0) {
+                // Check if the path in `nextDirection` is clear for the *next step*
+                if (!isCollisionWithWall(pacman.x, pacman.y, pacman.nextDirection.dx, pacman.nextDirection.dy, pacman.radius, moveAmount)) {
+                    // Check if Pac-Man is aligned to make the turn
+                    const canTurn = (pacman.nextDirection.dx !== 0 && Math.abs(pacman.y - (currentTileY * TILE_SIZE + TILE_SIZE / 2)) < alignmentThreshold) ||
+                                   (pacman.nextDirection.dy !== 0 && Math.abs(pacman.x - (currentTileX * TILE_SIZE + TILE_SIZE / 2)) < alignmentThreshold);
+
+                    if (canTurn) {
+                        // Snap Pac-Man to the center of the current tile on the perpendicular axis
+                        if (pacman.nextDirection.dx !== 0) { // If turning horizontally, snap Y
+                            pacman.y = currentTileY * TILE_SIZE + TILE_SIZE / 2;
+                        }
+                        if (pacman.nextDirection.dy !== 0) { // If turning vertically, snap X
+                            pacman.x = currentTileX * TILE_SIZE + TILE_SIZE / 2;
+                        }
+                        pacman.dx = pacman.nextDirection.dx;
+                        pacman.dy = pacman.nextDirection.dy;
+                        // pacman.nextDirection remains, allowing for "queued" turns
+                    }
+                }
+            }
+
+            // Store last non-zero direction for mouth animation when stopped
+            if (pacman.dx !== 0 || pacman.dy !== 0) {
+                pacman.lastDx = pacman.dx;
+                pacman.lastDy = pacman.dy;
+            }
+
+            // 2. Move Pac-Man based on current `dx/dy`
+            if (pacman.dx !== 0 || pacman.dy !== 0) {
+                // Check if moving in current direction would hit a wall
+                if (!isCollisionWithWall(pacman.x, pacman.y, pacman.dx, pacman.dy, pacman.radius, moveAmount)) {
+                    pacman.x += pacman.dx * moveAmount;
+                    pacman.y += pacman.dy * moveAmount;
+
+                    // Handle Teleportation (tunnels)
+                    if (pacman.x < 0) pacman.x = canvas.width + pacman.x;
+                    else if (pacman.x >= canvas.width) pacman.x = pacman.x - canvas.width;
+                } else {
+                    // If hitting a wall, snap to the edge and stop
+                    if (pacman.dx > 0) pacman.x = (currentTileX + 1) * TILE_SIZE - pacman.radius; // Snap to left edge of wall
+                    else if (pacman.dx < 0) pacman.x = currentTileX * TILE_SIZE + pacman.radius; // Snap to right edge of wall
+                    else if (pacman.dy > 0) pacman.y = (currentTileY + 1) * TILE_SIZE - pacman.radius; // Snap to top edge of wall
+                    else if (pacman.dy < 0) pacman.y = currentTileY * TILE_SIZE + pacman.radius; // Snap to bottom edge of wall
+
+                    pacman.dx = 0;
+                    pacman.dy = 0;
+                }
+            }
+        }
+
+        function moveGhost(ghost, effectiveDeltaTime) {
+            // --- In-House Bobbing ---
+            // If a ghost is waiting in the house, make it bob up and down and skip pathfinding.
+            if (ghost.state === 'inHouse') {
+                ghost.idleTimer = (ghost.idleTimer || 0) + effectiveDeltaTime;
+                const bobbleAmount = Math.sin(ghost.idleTimer / 250) * (TILE_SIZE / 10); // Bobble
+                ghost.y = ghost.originalY + bobbleAmount;
+                ghost.x = ghost.originalX; // Ensure it stays put horizontally
+                return; // Skip the rest of the movement logic
+            }
+
+            const ghostRadius = TILE_SIZE / 3; // Consistent radius for drawing and collision
+            const currentTileX = Math.floor(ghost.x / TILE_SIZE);
+            const currentTileY = Math.floor(ghost.y / TILE_SIZE);
+            const tileCenterX = currentTileX * TILE_SIZE + TILE_SIZE / 2;
+            const tileCenterY = currentTileY * TILE_SIZE + TILE_SIZE / 2;
+
+            // Ghost house exit point
+            const exitTargetX = GHOST_EXIT_TILE_X * TILE_SIZE;
+            const exitTargetY = GHOST_EXIT_TILE_Y * TILE_SIZE;
+            const exitTileX = Math.floor(exitTargetX / TILE_SIZE);
+            const exitTileY = Math.floor(exitTargetY / TILE_SIZE);
+
+            // State transitions for ghosts
+            if (ghost.eaten && ghost.state !== 'eaten') {
+                ghost.state = 'eaten';
+            } else if (ghost.state === 'eaten' && Math.abs(ghost.x - ghost.originalX) < TILE_SIZE/4 && Math.abs(ghost.y - ghost.originalY) < TILE_SIZE/4) {
+                // Ghost has returned to house after being eaten
+                ghost.x = ghost.originalX;
+                ghost.y = ghost.originalY;
+                ghost.eaten = false;
+                ghost.frightened = false;
+                ghost.speed = GHOST_NORMAL_SPEED_MULTIPLIER;
+                ghost.dx = 0;
+                ghost.dy = 0;
+                ghost.state = 'inHouse';
+                ghost.reReleaseTimer = 5000; // Set a 5-second timer to re-release
+            } else if (ghost.state === 'exitingHouse' && currentTileX === exitTileX && currentTileY === exitTileY) {
+                // Ghost has reached the exit tile
+                ghost.x = exitTargetX; // Snap to the center of the exit tile
+                ghost.y = exitTargetY;
+                ghost.state = ghostMode; // Enter the current global mode (scatter or chase)
+            }
+
+
+            // Movement logic based on state
+            let targetX, targetY;
+            
+            let effectiveSpeedMultiplier = ghost.speed;
+            if (ghost.state === 'eaten') {
+                effectiveSpeedMultiplier = 1.5; // Faster return speed
+            }
+            const moveAmount = PACMAN_SPEED_PPS * effectiveSpeedMultiplier * (effectiveDeltaTime / 1000);
+
+            if (ghost.state === 'eaten') {
+                targetX = ghost.originalX;
+                targetY = ghost.originalY;
+            } else if (ghost.state === 'exitingHouse') {
+                // Directly target the single, clear exit tile outside the house.
+                targetX = exitTargetX;
+                targetY = exitTargetY;
+            } else if (ghost.state === 'frightened') {
+                // Random target for frightened ghosts
+                targetX = Math.floor(Math.random() * MAP_WIDTH) * TILE_SIZE + TILE_SIZE / 2;
+                targetY = Math.floor(Math.random() * MAP_HEIGHT) * TILE_SIZE + TILE_SIZE / 2;
+            } else if (ghost.state === 'scatter') {
+                // Scatter mode: Each ghost targets their respective corner.
+                switch (ghost.id) {
+                    case 'blinky': // Top-right
+                        targetX = (MAP_WIDTH - 1) * TILE_SIZE;
+                        targetY = 0;
+                        break;
+                    case 'pinky': // Top-left
+                        targetX = 0;
+                        targetY = 0;
+                        break;
+                    case 'inky': // Bottom-right
+                        targetX = (MAP_WIDTH - 1) * TILE_SIZE;
+                        targetY = (MAP_HEIGHT - 1) * TILE_SIZE;
+                        break;
+                    case 'clyde': // Bottom-left
+                        targetX = 0;
+                        targetY = (MAP_HEIGHT - 1) * TILE_SIZE;
+                        break;
+                }
+            } else { // 'chase' state - Implement specific ghost AI
+                switch (ghost.id) {
+                    case 'blinky': // Blinky (Red): Targets Pac-Man's current tile
+                        targetX = pacman.x;
+                        targetY = pacman.y;
+                        break;
+                    case 'pinky': // Pinky (Pink): Targets 4 tiles ahead of Pac-Man
+                        let pacmanTargetX = pacman.x + pacman.dx * 4 * TILE_SIZE;
+                        let pacmanTargetY = pacman.y + pacman.dy * 4 * TILE_SIZE;
+
+                        // Original Pac-Man bug: If Pac-Man is moving up, Pinky targets 4 tiles up AND 4 tiles left
+                        if (pacman.dy < 0) { // Moving up
+                            pacmanTargetX -= 4 * TILE_SIZE;
+                        }
+                        targetX = pacmanTargetX;
+                        targetY = pacmanTargetY;
+                        break;
+                    case 'inky': // Inky (Cyan): Complex target based on Blinky and Pac-Man
+                        const blinkyGhost = ghosts.find(g => g.id === 'blinky');
+                        if (blinkyGhost) {
+                            let pacmanTwoAheadX = pacman.x + pacman.dx * 2 * TILE_SIZE;
+                            let pacmanTwoAheadY = pacman.y + pacman.dy * 2 * TILE_SIZE;
+
+                            // Original Pac-Man bug for Inky: If Pac-Man is moving up, target is 2 tiles up AND 2 tiles left
+                            if (pacman.dy < 0) { // Moving up
+                                pacmanTwoAheadX -= 2 * TILE_SIZE;
+                            }
+
+                            // Vector from Blinky to 2 tiles ahead of Pac-Man
+                            const vectorX = pacmanTwoAheadX - blinkyGhost.x;
+                            const vectorY = pacmanTwoAheadY - blinkyGhost.y;
+
+                            // Inky's target is twice this vector from Blinky
+                            targetX = blinkyGhost.x + 2 * vectorX;
+                            targetY = blinkyGhost.y + 2 * vectorY;
+                        } else {
+                            // Fallback if Blinky isn't found (shouldn't happen)
+                            targetX = pacman.x;
+                            targetY = pacman.y;
+                        }
+                        break;
+                    case 'clyde': // Clyde (Orange): Targets Pac-Man if far, scatter corner if close
+                        const distanceToPacman = Math.sqrt(
+                            Math.pow(ghost.x - pacman.x, 2) +
+                            Math.pow(ghost.y - pacman.y, 2)
+                        );
+                        const eightTiles = 8 * TILE_SIZE;
+
+                        if (distanceToPacman > eightTiles) {
+                            targetX = pacman.x;
+                            targetY = pacman.y;
+                        } else {
+                            // Clyde's scatter corner (bottom-left)
+                            targetX = TILE_SIZE / 2;
+                            targetY = (MAP_HEIGHT - 0.5) * TILE_SIZE;
+                        }
+                        break;
+                }
+            }
+
+            // Decide new direction only when centered on a tile
+            // Use a small buffer for centering to account for floating point inaccuracies
+            const centeringBuffer = moveAmount / 2; // Half a step
+            if (Math.abs(ghost.x - tileCenterX) < centeringBuffer && Math.abs(ghost.y - tileCenterY) < centeringBuffer) {
+                // Snap to center to prevent drift
+                ghost.x = tileCenterX;
+                ghost.y = tileCenterY;
+
+                let possibleDirections = [];
+                const directions = [{ dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }];
+
+                for (const dir of directions) {
+                    // Avoid turning back immediately unless stuck or frightened
+                    // This check is crucial for preventing oscillations.
+                    if (ghost.state !== 'frightened' && dir.dx === -ghost.dx && dir.dy === -ghost.dy && (ghost.dx !== 0 || ghost.dy !== 0)) {
+                        // Only prevent U-turn if ghost is already moving. If it's stopped, any direction is fine.
+                        continue;
+                    }
+
+                    let nextTileX = currentTileX + dir.dx;
+                    let nextTileY = currentTileY + dir.dy;
+
+                    // Handle tunnel wrapping for the *next tile check*
+                    if (nextTileX < 0) nextTileX = MAP_WIDTH - 1;
+                    else if (nextTileX >= MAP_WIDTH) nextTileX = 0;
+
+                    // Check if the tile is within vertical bounds
+                    if (nextTileY < 0 || nextTileY >= MAP_HEIGHT) {
+                        // Allow horizontal movement through tunnels even if vertically out of bounds
+                        // Tunnels are at Y=8 and Y=12 in your map (row 8 and row 12)
+                        if (dir.dx !== 0 && (currentTileY === 8 || currentTileY === 12)) {
+                            possibleDirections.push(dir);
+                        }
+                        continue; // Skip if out of vertical bounds and not a tunnel
+                    }
+
+                    const nextTileType = map[nextTileY][nextTileX];
+
+                    let isValidPath = true; // Assume path is valid unless proven otherwise
+
+                    if (nextTileType === 1) { // Is it a wall?
+                        isValidPath = false;
+                    } else {
+                        // Is it inside the ghost house zone? (approximate coordinates)
+                        const isNextTileInHouse = (nextTileY >= 8 && nextTileY <= 11 && nextTileX >= 7 && nextTileX <= 12);
+
+                        if (isNextTileInHouse) {
+                            // Only eaten or exiting ghosts can enter the house zone.
+                            if (ghost.state !== 'eaten' && ghost.state !== 'exitingHouse') {
+                                isValidPath = false;
+                            }
+                        }
+                        // Check the ghost gate separately
+                        else if (nextTileType === 6) {
+                            // Ghosts still 'inHouse' are not allowed to path through the gate.
+                            // They must transition to 'exitingHouse' first.
+                            if (ghost.state === 'inHouse') {
+                                isValidPath = false;
+                            }
+                        }
+                    }
+                    // For any other tile (pellets, empty space, tunnels outside the house), isValidPath remains true.
+
+
+                    if (isValidPath) {
+                        possibleDirections.push(dir);
+                    }
+                }
+
+                // If no valid directions (e.g., stuck in a dead end), allow reversing
+                if (possibleDirections.length === 0 && (ghost.dx !== 0 || ghost.dy !== 0)) {
+                    possibleDirections.push({ dx: -ghost.dx, dy: -ghost.dy });
+                }
+
+                if (possibleDirections.length > 0) {
+                    let bestDir = possibleDirections[0];
+                    let bestDistance = (ghost.state === 'frightened') ? -Infinity : Infinity; // Maximize distance if frightened
+
+                    for (const dir of possibleDirections) {
+                        const nextTileCenterX = (currentTileX + dir.dx) * TILE_SIZE + TILE_SIZE / 2;
+                        const nextTileCenterY = (currentTileY + dir.dy) * TILE_SIZE + TILE_SIZE / 2;
+                        const distance = Math.sqrt(
+                            Math.pow(nextTileCenterX - targetX, 2) +
+                            Math.pow(nextTileCenterY - targetY, 2)
+                        );
+
+                        if (ghost.state === 'frightened') {
+                            if (distance > bestDistance) {
+                                bestDistance = distance;
+                                bestDir = dir;
+                            }
+                        } else { // 'chase', 'inHouse', 'exitingHouse', 'eaten'
+                            if (distance < bestDistance) {
+                                bestDistance = distance;
+                                bestDir = dir;
+                            }
+                        }
+                    }
+                    ghost.dx = bestDir.dx;
+                    ghost.dy = bestDir.dy;
+                } else {
+                    // This case should be rare now with the added reverse logic,
+                    // but as a fallback, stop the ghost.
+                    ghost.dx = 0;
+                    ghost.dy = 0;
+                }
+            }
+
+            // Move ghost based on its current dx/dy
+            ghost.x += ghost.dx * moveAmount;
+            ghost.y += ghost.dy * moveAmount;
+
+            // Handle Teleportation (tunnels)
+            if (ghost.x < 0) ghost.x = canvas.width + ghost.x;
+            else if (ghost.x >= canvas.width) ghost.x = ghost.x - canvas.width;
+        }
+
+        // --- Collision Detection ---
+        function checkPelletCollision() {
+            if (pacman.isDashing) return; // Cannot eat while dashing
+            const tileX = Math.floor(pacman.x / TILE_SIZE);
+            const tileY = Math.floor(pacman.y / TILE_SIZE);
+
+            if (map[tileY] && (map[tileY][tileX] === 2 || map[tileY][tileX] === 3)) {
+                if (map[tileY][tileX] === 2) { // Pellet
+                    score += 10;
+                    playChompSound();
+                    playedChompThisFrame = true;
+                } else if (map[tileY][tileX] === 3) { // Power-up
+                    score += 50;
+                    playPowerupSound();
+                    playedChompThisFrame = true;
+                    ghosts.forEach(ghost => {
+                        // Ghosts are only frightened if they are outside of the ghost house.
+                        if (ghost.state !== 'eaten' && ghost.state !== 'inHouse' && ghost.state !== 'exitingHouse') {
+                            ghost.frightened = true;
+                            ghost.speed = GHOST_FRIGHTENED_SPEED_MULTIPLIER;
+                            // Reverse ghost direction when frightened
+                            ghost.dx = -ghost.dx;
+                            ghost.dy = -ghost.dy;
+                            ghost.state = 'frightened'; // Set state to frightened
+                        }
+                    });
+                    ghostFrightenedTimer = FRIGHTENED_DURATION;
+                }
+                map[tileY][tileX] = 4; // Mark as empty
+                pelletsRemaining--;
+                updateScoreDisplay();
+
+                pelletsEatenThisLife++;
+            }
+        }
+
+        function checkGhostCollision() {
+            if (pacman.isDashing) return; // Invulnerable while dashing
+
+            ghosts.forEach(ghost => {
+                if (ghost.eaten) return; // Skip eaten ghosts
+
+                const distance = Math.sqrt(
+                    Math.pow(pacman.x - ghost.x, 2) +
+                    Math.pow(pacman.y - ghost.y, 2)
+                );
+
+                // Collision radius for Pac-Man + Ghost (approximate)
+                const collisionRadius = pacman.radius + (TILE_SIZE / 3); // Pacman radius + Ghost radius
+
+                if (distance < collisionRadius) { // Collision detected
+                    if (ghost.frightened) {
+                        playEatGhostSound();
+                        score += 200; // Score for eating ghost
+                        ghost.eaten = true;
+                        ghost.frightened = false; // No longer frightened
+                        ghost.speed = GHOST_NORMAL_SPEED_MULTIPLIER; // Speed up to return
+                        ghost.state = 'eaten'; // Set state to eaten
+                        updateScoreDisplay();
+                    } else {
+                        // Pac-Man dies
+                        playDeathSound();
+                        lives--;
+                        updateLivesDisplay();
+                        if (lives <= 0) {
+                            gameOver();
+                        } else {
+                            resetPositions();
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Game State Management ---
+        function resetPositions() {
+            pacman.x = 9.5 * TILE_SIZE;
+            pacman.y = 14.5 * TILE_SIZE;
+            pacman.dx = 0;
+            pacman.dy = 0;
+            pacman.nextDirection = { dx: 0, dy: 0 };
+            pacman.lastDx = 0; // Reset for animation
+            pacman.lastDy = 0;
+            pacman.phaseDashAvailable = true; // Reset dash on new life
+            pacman.lastTileX = Math.floor(pacman.x / TILE_SIZE);
+            pacman.lastTileY = Math.floor(pacman.y / TILE_SIZE);
+            updateDashDisplay();
+
+
+            ghosts.forEach(ghost => {
+                ghost.x = ghost.originalX;
+                ghost.y = ghost.originalY;
+                ghost.dx = 0;
+                ghost.dy = 0;
+                ghost.frightened = false;
+                ghost.eaten = false;
+                ghost.speed = GHOST_NORMAL_SPEED_MULTIPLIER;
+                ghost.state = 'inHouse';
+                ghost.reReleaseTimer = 0;
+            });
+            ghostFrightenedTimer = 0;
+            pelletsEatenThisLife = 0;
+
+
+            // Reset ghost mode timer
+            modeCycleIndex = 0;
+            ghostMode = MODE_CYCLES[0].mode;
+            ghostModeTimer = MODE_CYCLES[0].duration;
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            isGameOver = true;
+            gameOverTimer = 3000; // 3 seconds to display "GAME OVER"
+            playGameOverSound();
+        }
+
+        function levelComplete() {
+            gameRunning = false;
+            const messageContainer = document.getElementById('message');
+            const messageText = document.getElementById('message-text');
+
+            messageText.innerHTML = `LEVEL COMPLETE!<br><small style='font-size: 0.6em; color: #ccc;'>Loading next level...</small>`;
+            messageText.style.color = 'green';
+            
+            document.getElementById('message-buttons').innerHTML = ''; // Clear buttons
+            messageContainer.style.display = 'flex';
+
+            // Automatically start the next level after a brief pause
+            setTimeout(startNewRandomMap, 3000); // 3 second delay
+        }
+
+        function executePhaseDash() {
+            if (!pacman.phaseDashAvailable || pacman.isDashing || paused) return;
+
+            // Determine dash direction from current or last movement
+            const dirX = pacman.dx || pacman.lastDx || 0;
+            const dirY = pacman.dy || pacman.lastDy || 0;
+
+            // Cannot dash without a direction
+            if (dirX === 0 && dirY === 0) return;
+
+            // Calculate target tile
+            const currentTileX = Math.floor(pacman.x / TILE_SIZE);
+            const currentTileY = Math.floor(pacman.y / TILE_SIZE);
+            let targetTileX = currentTileX + dirX * DASH_TILES;
+            let targetTileY = currentTileY + dirY * DASH_TILES;
+
+            // Handle horizontal wrapping for the target tile (tunnels)
+            if (targetTileX < 0) targetTileX = MAP_WIDTH + targetTileX;
+            else if (targetTileX >= MAP_WIDTH) targetTileX = targetTileX - MAP_WIDTH;
+
+            // Check if the dash is valid (not off-map vertically or into a wall)
+            if (targetTileY < 0 || targetTileY >= MAP_HEIGHT || map[targetTileY][targetTileX] === 1) {
+                // Play a fail sound or visual effect here if desired, but for now, just do nothing.
+                return;
+            }
+
+            // If we reach here, the dash is valid.
+            pacman.phaseDashAvailable = false;
+            updateDashDisplay();
+            playDashSound();
+
+            pacman.isDashing = true;
+            pacman.dashTimer = DASH_DURATION;
+
+            // Instantly move Pac-Man to the target
+            pacman.x = targetTileX * TILE_SIZE + TILE_SIZE / 2;
+            pacman.y = targetTileY * TILE_SIZE + TILE_SIZE / 2;
+
+            // Stop Pac-Man's movement to prevent him from instantly running into a wall after dashing.
+            pacman.dx = 0;
+            pacman.dy = 0;
+            pacman.nextDirection = { dx: 0, dy: 0 };
+        }
+
+
+        function startNewRandomMap() {
+            INITIAL_MAP = generateRandomMap();
+            initGame(true);
+        }
+
+        function generateRandomMap() {
+            const width = MAP_WIDTH;
+            const height = MAP_HEIGHT;
+            const halfWidth = Math.floor(width / 2);
+            let newMap = Array(height).fill(null).map(() => Array(width).fill(1));
+
+            // Define ghost house area and reserve it before carving the maze
+            const houseTop = 8, houseLeft = 7, houseWidth = 6, houseHeight = 4;
+            // We only need to reserve the left-half portion, as the right half will be mirrored.
+            for (let r = houseTop; r < houseTop + houseHeight; r++) {
+                for (let c = houseLeft; c < halfWidth; c++) {
+                    newMap[r][c] = 5; // Use 5 as a temporary "reserved" tile
+                }
+            }
+
+            function shuffle(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+
+            // Recursive backtracking algorithm to carve paths
+            function carve(cx, cy) {
+                const directions = [[0, -1], [0, 1], [-1, 0], [1, 0]]; // N, S, W, E
+                shuffle(directions);
+
+                for (const [dx, dy] of directions) {
+                    const nx = cx + dx * 2;
+                    const ny = cy + dy * 2;
+                    // Check bounds for the new cell, must be within the left half
+                    if (ny > 0 && ny < height - 1 && nx > 0 && nx < halfWidth) {
+                        // We only carve into standard walls (1), not our reserved area (5)
+                        if (newMap[ny][nx] === 1) {
+                            newMap[ny - dy][nx - dx] = 2; // Carve path between cells
+                            newMap[ny][nx] = 2;         // Carve new cell
+                            carve(nx, ny);
+                        }
+                    }
+                }
+            }
+
+            // Start carving from a fixed point
+            newMap[1][1] = 2;
+            carve(1, 1);
+
+            // Mirror the carved left half to the right half to create symmetry
+            for (let r = 1; r < height - 1; r++) {
+                for (let c = 1; c < halfWidth; c++) {
+                    newMap[r][width - 1 - c] = newMap[r][c];
+                }
+            }
+
+            // Now that the maze is generated around the reserved space,
+            // we can place the actual ghost house structure.
+            for (let r = houseTop; r < houseTop + houseHeight; r++) {
+                for (let c = houseLeft; c < houseLeft + houseWidth; c++) {
+                    // Draw walls on the perimeter of the house
+                    newMap[r][c] = (r === houseTop || c === houseLeft || c === houseLeft + houseWidth - 1) ? 1 : 0;
+                }
+            }
+            // Add the bottom wall and the exit gate
+            newMap[houseTop][houseLeft + 2] = 6;
+            newMap[houseTop][houseLeft + 3] = 6;
+            newMap[houseTop + houseHeight - 1].fill(1, houseLeft, houseLeft + houseWidth);
+
+
+            // Add Tunnels at a safe Y-coordinate to avoid conflict with the ghost house
+            const tunnelY = 14;
+            newMap[tunnelY][0] = 4;
+            newMap[tunnelY][width - 1] = 4;
+            // ensure path to tunnel
+            newMap[tunnelY][1] = 2;
+            newMap[tunnelY][width - 2] = 2;
+
+            // Place Power-ups in corners by finding a reachable pellet spot
+            const placePowerUpInQuadrant = (startR, endR, startC, endC) => {
+                const possibleLocations = [];
+                // Prioritize placing power-ups in "dead ends" for classic level design
+                for (let r = startR; r < endR; r++) {
+                    for (let c = startC; c < endC; c++) {
+                        if (newMap[r][c] === 2) { // is a path
+                            let neighbors = 0;
+                            if (newMap[r - 1][c] !== 1) neighbors++;
+                            if (newMap[r + 1][c] !== 1) neighbors++;
+                            if (newMap[r][c - 1] !== 1) neighbors++;
+                            if (newMap[r][c + 1] !== 1) neighbors++;
+                            if (neighbors === 1) {
+                                possibleLocations.push({ r, c });
+                            }
+                        }
+                    }
+                }
+                if (possibleLocations.length > 0) {
+                    // Pick a random dead-end
+                    const spot = possibleLocations[Math.floor(Math.random() * possibleLocations.length)];
+                    newMap[spot.r][spot.c] = 3;
+                } else {
+                    // Fallback: if no dead-ends, place in the first available pellet spot in the quadrant
+                    for (let r = startR; r < endR; r++) {
+                        for (let c = startC; c < endC; c++) {
+                            if (newMap[r][c] === 2) {
+                                newMap[r][c] = 3;
+                                return; // Exit after placing one
+                            }
+                        }
+                    }
+                }
+            };
+
+            const qHeight = Math.floor(height / 2);
+            const qWidth = Math.floor(width / 2);
+
+            placePowerUpInQuadrant(1, qHeight, 1, qWidth); // Top-left
+            placePowerUpInQuadrant(1, qHeight, qWidth, width - 1); // Top-right
+            placePowerUpInQuadrant(qHeight, height - 1, 1, qWidth); // Bottom-left
+            placePowerUpInQuadrant(qHeight, height - 1, qWidth, width - 1); // Bottom-right
+
+            // Ensure Pacman's start location is clear
+            newMap[14][9] = 4;
+            newMap[14][10] = 4;
+
+            return newMap;
+        }
+
+        // --- UI Updates ---
+        function updateScoreDisplay() {
+            document.getElementById('score').textContent = `Score: ${score}`;
+            if (score >= nextHighScoreThreshold) {
+                playHighScoreSound();
+                // Set the next threshold. This handles scores that might jump over multiple thresholds at once.
+                nextHighScoreThreshold = (Math.floor(score / 5000) + 1) * 5000;
+            }
+        }
+
+        function updateLivesDisplay() {
+            document.getElementById('lives').textContent = `Lives: ${lives}`;
+        }
+        
+        function updateDashDisplay() {
+            const dashStatusEl = document.getElementById('dash-status');
+            dashStatusEl.textContent = pacman.phaseDashAvailable ? 'Dash: Ready' : 'Dash: Used';
+            dashStatusEl.style.color = pacman.phaseDashAvailable ? 'lime' : '#aaa';
+        }
+
+        // --- Game Start Screen ---
+        function showStartScreen() {
+            // Hide game UI and show the message container
+            document.getElementById('game-info').style.display = 'none';
+            document.getElementById('gameCanvas').style.display = 'none';
+            document.getElementById('controls-info').style.display = 'none';
+            
+            const messageContainer = document.getElementById('message');
+            const messageText = document.getElementById('message-text');
+            const messageButtons = document.getElementById('message-buttons');
+            
+            let startScreenHTML = "<h1>PACCLONE</h1>";
+            startScreenHTML += "<div id='scores-container'></div>"; // Placeholder for scores table
+            startScreenHTML += "<small id='start-gamepad-info' style='font-size: 0.5em; color: #aaa; display: block; margin-top: 15px;'>Connect controller and press a button</small>";
+            messageText.innerHTML = startScreenHTML;
+
+            const scoresContainer = document.getElementById('scores-container');
+            displayHighScores(scoresContainer);
+            
+            messageButtons.innerHTML = ''; // Clear just in case
+            const startButton = document.createElement('button');
+            startButton.textContent = 'Start Game';
+            
+            startButton.onclick = () => {
+                // This is our trusted user gesture
+                initializeAudio();
+                
+                // And finally, start the game
+                initGame(false);
+            };
+            
+            messageButtons.appendChild(startButton);
+            messageContainer.style.display = 'flex';
+        }
+
+        // --- Touch Controls Setup ---
+        function setupTouchControls() {
+            if (!('ontouchstart' in window)) {
+                return;
+            }
+
+            const touchControls = document.getElementById('touch-controls');
+            const dpadUp = document.getElementById('dpad-up');
+            const dpadDown = document.getElementById('dpad-down');
+            const dpadLeft = document.getElementById('dpad-left');
+            const dpadRight = document.getElementById('dpad-right');
+            const dashButton = document.getElementById('dash-button-touch');
+            const controlsInfo = document.getElementById('controls-info');
+
+            touchControls.style.display = 'block';
+            controlsInfo.textContent = 'D-Pad: Move | DASH: Dash | P: Pause | R: Reset';
+
+            const handleDpadPress = (e, direction) => {
+                e.preventDefault();
+                pacman.nextDirection = direction;
+            };
+
+            dpadUp.addEventListener('touchstart', (e) => handleDpadPress(e, { dx: 0, dy: -1 }), { passive: false });
+            dpadDown.addEventListener('touchstart', (e) => handleDpadPress(e, { dx: 0, dy: 1 }), { passive: false });
+            dpadLeft.addEventListener('touchstart', (e) => handleDpadPress(e, { dx: -1, dy: 0 }), { passive: false });
+            dpadRight.addEventListener('touchstart', (e) => handleDpadPress(e, { dx: 1, dy: 0 }), { passive: false });
+
+            dashButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (gameRunning && !paused) {
+                    executePhaseDash();
+                }
+            }, { passive: false });
+        }
+
+        // --- Gamepad Support ---
+        
+        // Standard XInput layout for Xbox 360/One/Series controllers
+        const GAMEPAD_BUTTONS = {
+            A: 0,
+            B: 1,
+            X: 2,
+            Y: 3,
+            LB: 4,
+            RB: 5,
+            LT: 6,
+            RT: 7,
+            BACK: 8,
+            START: 9,
+            L_STICK: 10,
+            R_STICK: 11,
+            DPAD_UP: 12,
+            DPAD_DOWN: 13,
+            DPAD_LEFT: 14,
+            DPAD_RIGHT: 15,
+        };
+        
+        function updateGamepadStatus(connected, name = '') {
+            // Update in-game UI
+            const statusEl = document.getElementById('gamepad-status');
+            const controlsEl = document.getElementById('controls-info');
+            if (connected) {
+                statusEl.textContent = `Controller: Connected`;
+                statusEl.style.color = 'lime';
+                controlsEl.textContent = 'D-Pad/Stick: Move | (A): Dash | (Start): Pause | (B): Reset';
+            } else {
+                statusEl.textContent = 'Controller: Disconnected';
+                statusEl.style.color = '#aaa';
+                 // Don't overwrite touch controls text if touch is enabled
+                if (!('ontouchstart' in window)) {
+                    controlsEl.textContent = 'Use Arrow Keys to Move | P to Pause | Space to Dash | R to Reset';
+                }
+            }
+        
+            // Also update start-screen UI if it exists and game is not running
+            const startInfo = document.getElementById('start-gamepad-info');
+            if (startInfo && !gameRunning) {
+                if (connected) {
+                    startInfo.textContent = 'Controller Ready! Press Start or (A) to Play.';
+                    startInfo.style.color = 'lime';
+                } else {
+                    startInfo.textContent = 'Connect controller and press a button to activate';
+                    startInfo.style.color = '#aaa';
+                }
+            }
+        }
+
+        function setupGamepadListeners() {
+            window.addEventListener("gamepadconnected", (e) => {
+                console.log(`[GP_EVENT] Gamepad connected at index ${e.gamepad.index}: ${e.gamepad.id}`);
+            });
+            window.addEventListener("gamepaddisconnected", (e) => {
+                console.log(`[GP_EVENT] Gamepad disconnected from index ${e.gamepad.index}: ${e.gamepad.id}`);
+                if (e.gamepad.index === gamepadIndex) {
+                    updateGamepadStatus(false);
+                }
+            });
+        }
+        
+        function findActiveGamepad() {
+            const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+            if (!gamepads) return null;
+
+            let standardMappingGamepad = null;
+            let xboxIDGamepad = null;
+            let firstAvailableGamepad = null;
+
+            for (const gamepad of gamepads) {
+                if (!gamepad) continue;
+
+                const isRealController = gamepad.buttons.length > 0 && gamepad.axes.length > 0;
+                if (!isRealController) {
+                    continue; 
+                }
+
+                if (!firstAvailableGamepad) {
+                    firstAvailableGamepad = gamepad;
+                }
+                if (gamepad.mapping === 'standard') {
+                    if (!standardMappingGamepad) standardMappingGamepad = gamepad;
+                }
+                if (gamepad.id && (gamepad.id.toLowerCase().includes('xinput') || gamepad.id.toLowerCase().includes('xbox'))) {
+                    if (!xboxIDGamepad) xboxIDGamepad = gamepad;
+                }
+            }
+            return standardMappingGamepad || xboxIDGamepad || firstAvailableGamepad;
+        }
+
+        function handleGamepadInput() {
+            const gamepad = findActiveGamepad();
+        
+            if (gamepad) {
+                if (gamepadIndex !== gamepad.index) {
+                    gamepadIndex = gamepad.index;
+                    updateGamepadStatus(true, gamepad.id);
+                    lastButtons = gamepad.buttons.map(b => (b ? b.pressed : false));
+                }
+            } else {
+                if (gamepadIndex !== null) {
+                    updateGamepadStatus(false);
+                }
+                return;
+            }
+        
+            const activeGamepad = navigator.getGamepads()[gamepadIndex];
+            if (!activeGamepad) {
+                return;
+            }
+
+            const pressed = (buttonIndex) => {
+                if (!activeGamepad.buttons[buttonIndex]) return false;
+                const isPressedNow = activeGamepad.buttons[buttonIndex].pressed;
+                const wasPressedLast = lastButtons[buttonIndex] || false;
+                return isPressedNow && !wasPressedLast;
+            };
+
+            const stickX = activeGamepad.axes[0];
+            const stickY = activeGamepad.axes[1];
+            const deadzone = 0.5;
+        
+            if (isGameOver) {
+                if (pressed(GAMEPAD_BUTTONS.B)) {
+                    initGame(false);
+                }
+                // Update button state for next frame
+                lastButtons = activeGamepad.buttons.map(b => (b ? b.pressed : false));
+                return; // Prevent other actions during game over sequence
+            }
+
+            if (!gameRunning) {
+                if (pressed(GAMEPAD_BUTTONS.START) || pressed(GAMEPAD_BUTTONS.A)) {
+                    const onScreenStartButton = document.querySelector('#message-buttons button');
+                    if (onScreenStartButton) {
+                        onScreenStartButton.click();
+                    }
+                }
+            } else {
+                if (!paused) {
+                    let movedByStick = false;
+        
+                    if (Math.abs(stickY) > Math.abs(stickX) && Math.abs(stickY) > deadzone) {
+                        pacman.nextDirection = { dx: 0, dy: stickY > 0 ? 1 : -1 };
+                        movedByStick = true;
+                    } else if (Math.abs(stickX) > Math.abs(stickY) && Math.abs(stickX) > deadzone) {
+                        pacman.nextDirection = { dx: stickX > 0 ? 1 : -1, dy: 0 };
+                        movedByStick = true;
+                    }
+        
+                    if (!movedByStick) {
+                        if (activeGamepad.buttons[GAMEPAD_BUTTONS.DPAD_UP]?.pressed) pacman.nextDirection = { dx: 0, dy: -1 };
+                        else if (activeGamepad.buttons[GAMEPAD_BUTTONS.DPAD_DOWN]?.pressed) pacman.nextDirection = { dx: 0, dy: 1 };
+                        else if (activeGamepad.buttons[GAMEPAD_BUTTONS.DPAD_LEFT]?.pressed) pacman.nextDirection = { dx: -1, dy: 0 };
+                        else if (activeGamepad.buttons[GAMEPAD_BUTTONS.DPAD_RIGHT]?.pressed) pacman.nextDirection = { dx: 1, dy: 0 };
+                    }
+                }
+        
+                if (pressed(GAMEPAD_BUTTONS.A)) executePhaseDash();
+                if (pressed(GAMEPAD_BUTTONS.B)) initGame(false); // Reset
+                if (pressed(GAMEPAD_BUTTONS.START)) {
+                    paused = !paused;
+                    if (!paused) {
+                        document.getElementById('message').style.display = 'none';
+                        lastFrameTime = performance.now();
+                    }
+                }
+            }
+        
+            lastButtons = activeGamepad.buttons.map(b => (b ? b.pressed : false));
+        }
+
+        // --- Event Listeners ---
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'm') {
+                toggleMute();
+            }
+
+            if (e.target.tagName.toLowerCase() === 'input') {
+                return;
+            }
+
+            if (e.key.toLowerCase() === 'r') {
+                initGame(false);
+                return;
+            }
+            
+            if (isGameOver) {
+                return; // Prevent actions during game over sequence
+            }
+
+            if (!gameRunning) {
+                return;
+            }
+
+            if (e.key.toLowerCase() === 'p') {
+                e.preventDefault();
+                paused = !paused;
+                if (!paused) {
+                    document.getElementById('message').style.display = 'none';
+                    lastFrameTime = performance.now();
+                }
+                return; 
+            }
+
+            if (paused) return;
+
+            if (e.key === ' ') {
+                e.preventDefault();
+                executePhaseDash();
+            }
+
+            switch (e.key) {
+                case 'ArrowUp':
+                    pacman.nextDirection = { dx: 0, dy: -1 };
+                    break;
+                case 'ArrowDown':
+                    pacman.nextDirection = { dx: 0, dy: 1 };
+                    break;
+                case 'ArrowLeft':
+                    pacman.nextDirection = { dx: -1, dy: 0 };
+                    break;
+                case 'ArrowRight':
+                    pacman.nextDirection = { dx: 1, dy: 0 };
+                    break;
+            }
+        });
+
+        window.onload = () => {
+            console.clear();
+            console.log('[SYSTEM] Page loaded. Setting up game.');
+            
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+
+            setupGamepadListeners();
+            setupTouchControls();
+
+            muteButton = document.getElementById('mute-button');
+            if (muteButton) {
+                muteButton.addEventListener('click', toggleMute);
+            }
+            updateMuteButtonDisplay();
+            
+            const speedSlider = document.getElementById('speed-slider');
+            const speedValue = document.getElementById('speed-value');
+            if (speedSlider && speedValue) {
+                speedSlider.addEventListener('input', (e) => {
+                    gameSpeedMultiplier = parseFloat(e.target.value);
+                    speedValue.textContent = `${gameSpeedMultiplier.toFixed(1)}x`;
+                });
+            }
+
+            loadHighScores();
+            showStartScreen();
+            
+            // Start the master loop. It will manage all states.
+            lastFrameTime = performance.now();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        };
+    </script>
+
+   <script type="module" src="/index.tsx"></script>
+</body>
+</html>
