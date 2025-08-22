@@ -171,7 +171,6 @@
         #dpad {
             position: absolute;
             bottom: 0;
-            left: 0;
             width: 150px;
             height: 150px;
             display: grid;
@@ -241,7 +240,6 @@
         #dash-button-touch {
             position: absolute;
             bottom: 15px; /* Aligned with joystick area */
-            right: 15px;
             width: 80px;
             height: 80px;
             border-radius: 50%;
@@ -262,10 +260,25 @@
         #dash-button-touch:active {
             background-color: rgba(255, 255, 0, 0.7);
         }
+        
+        /* --- Touch Controls Layout --- */
+        /* Default (Right-handed) Layout */
+        #touch-controls:not(.left-hand-layout) #dpad {
+            left: 0;
+        }
+        #touch-controls:not(.left-hand-layout) #dash-button-touch {
+            right: 15px;
+        }
+        /* Swapped (Left-handed) Layout */
+        #touch-controls.left-hand-layout #dpad {
+            right: 0;
+        }
+        #touch-controls.left-hand-layout #dash-button-touch {
+            left: 15px;
+        }
     </style>
 
 
-<link rel="stylesheet" href="/index.css">
 </head>
 <body>
     <div id="game-info">
@@ -306,6 +319,7 @@
         const MAP_HEIGHT = 20; // 600 / 30
         const DASH_DURATION = 200; // ms for visual effect
         const DASH_TILES = 3; // How many tiles to jump
+        const CONTROLS_PREFERENCE_KEY = 'paccloneControlsPref';
         const HIGH_SCORES_KEY = 'paccloneHighScores';
         const MAX_HIGH_SCORES = 10;
         const GHOST_RELEASE_THRESHOLDS = {
@@ -1940,6 +1954,23 @@
         }
 
         // --- UI Updates ---
+        
+        function applyControlsLayout() {
+            const preference = localStorage.getItem(CONTROLS_PREFERENCE_KEY); // 'left' or null/right
+            const touchControls = document.getElementById('touch-controls');
+            if (preference === 'left') {
+                touchControls.classList.add('left-hand-layout');
+            } else {
+                touchControls.classList.remove('left-hand-layout');
+            }
+        }
+
+        function toggleControlsLayout() {
+            const touchControls = document.getElementById('touch-controls');
+            const isLeftHanded = touchControls.classList.toggle('left-hand-layout');
+            localStorage.setItem(CONTROLS_PREFERENCE_KEY, isLeftHanded ? 'left' : 'right');
+        }
+
         function updateScoreDisplay() {
             document.getElementById('score').textContent = `Score: ${score}`;
             if (score >= nextHighScoreThreshold) {
@@ -1991,6 +2022,16 @@
             };
             
             messageButtons.appendChild(startButton);
+
+            // Only show the switch button on touch devices
+            if ('ontouchstart' in window) {
+                const switchControlsButton = document.createElement('button');
+                switchControlsButton.textContent = 'Switch Controls';
+                switchControlsButton.title = 'Swap D-Pad and Dash button for left/right hand preference';
+                switchControlsButton.onclick = toggleControlsLayout;
+                messageButtons.appendChild(switchControlsButton);
+            }
+            
             messageContainer.style.display = 'flex';
         }
 
@@ -2267,6 +2308,7 @@
             canvas = document.getElementById('gameCanvas');
             ctx = canvas.getContext('2d');
 
+            applyControlsLayout(); // Apply saved preference on load
             setupGamepadListeners();
             setupTouchControls();
 
@@ -2294,6 +2336,5 @@
         };
     </script>
 
-   <script type="module" src="/index.tsx"></script>
-</body>
+   </body>
 </html>
