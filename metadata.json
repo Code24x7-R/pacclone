@@ -1,5 +1,6 @@
 {
   "name": "pacclone",
   "description": "pacman clone demo",
+  "version": "2.12",
   "requestFramePermissions": []
 }
