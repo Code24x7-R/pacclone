@@ -1,7 +1,7 @@
-#👻 Pacclone Arcade #2.1
+👻 Pacclone Arcade #2.1
 A classic arcade-style game reminiscent of Pac-Man, built entirely with HTML, CSS, and JavaScript in a single file! Navigate the maze, eat all the pellets, avoid the ghosts, and aim for the high score!
 
-#✨ Features
+✨ Features
 Classic Gameplay: Familiar maze-chasing action with pellets and power-ups.
 Intelligent Ghosts: Each ghost (Blinky, Pinky, Inky, Clyde) has its own unique AI, including scatter and chase modes.
 Power-ups: Eat power pellets to turn the tables and gobble up frightened ghosts for bonus points!
@@ -12,7 +12,7 @@ Adaptive Controls: Play with keyboard ⌨️, gamepad 🎮, or intuitive touch c
 Custom Sound Effects: Retro-inspired audio for chomping, power-ups, ghost eating, and more!
 Adjustable Game Speed: A slider to customize the game's pace to your liking.
 
-#🕹️ How to Play
+🕹️ How to Play
 ## Objective
 Eat all the small pellets and power-ups in the maze while avoiding the ghosts. If you eat a power-up, ghosts become frightened and vulnerable – eat them for extra points before they recover!
 
@@ -48,16 +48,16 @@ Death: Lose a life if a regular ghost catches you.
 Game Over: Occurs when you run out of lives. If you get a high score, you'll be prompted to enter your initials!
 Level Complete: Clear all pellets to advance to a new, randomly generated maze.
 
-#👨‍💻 Technical Details
+👨‍💻 Technical Details
 
-##This project is a single-file web game, leveraging:
+## This project is a single-file web game, leveraging:
 
 HTML5: For the game structure and UI elements.
 CSS3: Minimal styling, with a retro arcade aesthetic.
 JavaScript (ES6+): Powers all game logic, rendering, AI, collision detection, and audio synthesis using the Web Audio API.
 No external libraries or frameworks are used, keeping the footprint minimal and the code entirely self-contained within index.html.
 
-#🚀 Future Enhancements (suggested)
+🚀 Future Enhancements (suggested)
 
 More Ghost AI Patterns: Introduce additional ghost behaviors for more complex challenges.
 Varied Power-ups: Different types of power-ups with unique effects.
