@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pacclone Arcade #2.1</title>
+    <title>Pacclone Arcade #2.11</title>
     <style>
+        :root {
+            --dpad-size: clamp(120px, 25vmin, 160px);
+            --dash-btn-size: clamp(70px, 18vmin, 85px);
+        }
         body {
             display: flex;
             flex-direction: column;
@@ -16,24 +20,37 @@
             color: #fff;
             font-family: monospace; /* Fallback to monospace for a retro feel */
             overflow: hidden; /* Prevent scrollbars */
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 600px; /* Set a max-width for larger screens */
         }
         canvas {
             background-color: #000;
             border: 2px solid #fff;
             display: block;
             margin-bottom: 20px;
+            width: 100%; /* Make canvas responsive */
+            height: auto; /* Maintain aspect ratio */
+            aspect-ratio: 1 / 1; /* Enforce 1:1 aspect ratio */
+            image-rendering: pixelated; /* Keep pixels sharp when scaling */
         }
         /* Hide game elements by default until the game starts */
-        #game-info, canvas, #controls-info {
+        #game-info, #gameCanvas, #controls-info {
             display: none;
         }
         #game-info {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            width: 600px; /* Match canvas width */
+            width: 100%; /* Was 600px */
             margin-bottom: 10px;
-            font-size: 1.2em;
+            font-size: clamp(0.75rem, 2.5vw, 1.2rem); /* Responsive font size */
             flex-wrap: wrap; /* Allow wrapping for smaller screens */
             gap: 10px;
         }
@@ -45,7 +62,7 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 2em;
+            font-size: clamp(1rem, 3vw, 2rem);
             color: yellow;
             text-align: center;
             background-color: rgba(0, 0, 0, 0.85);
@@ -56,11 +73,11 @@
             flex-direction: column;
             align-items: center;
             gap: 20px;
-            width: 80%;
+            width: 90%;
             max-width: 500px;
         }
         #message h1 {
-            font-size: 2.5em;
+            font-size: clamp(1.8rem, 8vw, 2.5rem);
             margin: 0 0 15px 0;
             color: yellow;
             text-shadow: 3px 3px 0px #f00;
@@ -72,7 +89,7 @@
         #high-scores table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.6em;
+            font-size: clamp(0.5rem, 2.2vw, 0.6em);
             margin-bottom: 20px;
         }
         #high-scores th, #high-scores td {
@@ -153,33 +170,35 @@
             text-align: right;
         }
         #controls-info {
-            margin-top: 20px;
-            font-size: 0.9em;
+            margin-top: 10px;
+            font-size: clamp(0.7rem, 2vw, 0.9rem);
             color: #aaa;
+            text-align: center;
         }
         /* --- Touch Controls --- */
         #touch-controls {
             display: none; /* Hidden by default, JS will show it */
             position: fixed;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            height: 150px;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            height: var(--dpad-size);
             pointer-events: none; /* Container doesn't block clicks, children will override */
             z-index: 10;
         }
         #dpad {
             position: absolute;
             bottom: 0;
-            width: 150px;
-            height: 150px;
+            width: var(--dpad-size);
+            height: var(--dpad-size);
             display: grid;
-            grid-template-columns: 50px 50px 50px;
-            grid-template-rows: 50px 50px 50px;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
             pointer-events: auto; /* This area is interactive */
             user-select: none;
             -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
+            font-size: clamp(8px, 2vmin, 12px); /* Base for em units in arrows */
         }
         .dpad-btn {
             background-color: rgba(255, 255, 255, 0.2);
@@ -218,37 +237,37 @@
             border-color: transparent;
         }
         #dpad-up::after {
-            border-width: 0 10px 15px 10px;
+            border-width: 0 1.25em 1.875em 1.25em;
             border-bottom-color: rgba(255, 255, 255, 0.8);
             transform: translate(-50%, -60%);
         }
         #dpad-down::after {
-            border-width: 15px 10px 0 10px;
+            border-width: 1.875em 1.25em 0 1.25em;
             border-top-color: rgba(255, 255, 255, 0.8);
             transform: translate(-50%, -40%);
         }
         #dpad-left::after {
-            border-width: 10px 15px 10px 0;
+            border-width: 1.25em 1.875em 1.25em 0;
             border-right-color: rgba(255, 255, 255, 0.8);
             transform: translate(-60%, -50%);
         }
         #dpad-right::after {
-            border-width: 10px 0 10px 15px;
+            border-width: 1.25em 0 1.25em 1.875em;
             border-left-color: rgba(255, 255, 255, 0.8);
             transform: translate(-40%, -50%);
         }
         #dash-button-touch {
             position: absolute;
             bottom: 15px; /* Aligned with joystick area */
-            width: 80px;
-            height: 80px;
+            width: var(--dash-btn-size);
+            height: var(--dash-btn-size);
             border-radius: 50%;
             background-color: rgba(255, 255, 0, 0.4);
             border: 2px solid yellow;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.2em;
+            font-size: clamp(0.9rem, 3vmin, 1.2rem);
             font-family: monospace;
             color: white;
             text-shadow: 1px 1px 2px black;
@@ -281,25 +300,27 @@
 
 </head>
 <body>
-    <div id="game-info">
-        <div id="score">Score: 0</div>
-        <div id="lives">Lives: 3</div>
-        <div id="dash-status">Dash: Ready</div>
-        <div id="gamepad-status">Controller: Disconnected</div>
-        <div id="speed-control">
-            <label for="speed-slider">Speed:</label>
-            <input type="range" id="speed-slider" min="0.5" max="2" step="0.1" value="1" title="Adjust Game Speed">
-            <span id="speed-value">1.0x</span>
+    <div id="game-container">
+        <div id="game-info">
+            <div id="score">Score: 0</div>
+            <div id="lives">Lives: 3</div>
+            <div id="dash-status">Dash: Ready</div>
+            <div id="gamepad-status">Controller: Disconnected</div>
+            <div id="speed-control">
+                <label for="speed-slider">Speed:</label>
+                <input type="range" id="speed-slider" min="0.5" max="2" step="0.1" value="1" title="Adjust Game Speed">
+                <span id="speed-value">1.0x</span>
+            </div>
+            <button id="mute-button" title="Toggle Sound (M)">Mute</button>
         </div>
-        <button id="mute-button" title="Toggle Sound (M)">Mute</button>
+        <canvas id="gameCanvas" width="600" height="600"></canvas>
+        <div id="controls-info">
+            Use Arrow Keys to Move | P to Pause | Space to Dash | R to Reset
+        </div>
     </div>
-    <canvas id="gameCanvas" width="600" height="600"></canvas>
     <div id="message">
         <div id="message-text"></div>
         <div id="message-buttons"></div>
-    </div>
-    <div id="controls-info">
-        Use Arrow Keys to Move | P to Pause | Space to Dash | R to Reset
     </div>
     <div id="touch-controls">
         <div id="dpad">
@@ -833,9 +854,7 @@
 
         function promptForName(playerScore) {
             // Hide game UI
-            document.getElementById('game-info').style.display = 'none';
-            document.getElementById('gameCanvas').style.display = 'none';
-            document.getElementById('controls-info').style.display = 'none';
+            document.getElementById('game-container').style.display = 'none';
 
             const messageContainer = document.getElementById('message');
             const messageText = document.getElementById('message-text');
@@ -873,6 +892,7 @@
         // --- Game Initialization ---
         function initGame(isContinuation = false) {
             // Ensure game elements are visible and message overlay is hidden
+            document.getElementById('game-container').style.display = 'flex';
             document.getElementById('game-info').style.display = 'flex';
             document.getElementById('gameCanvas').style.display = 'block';
             document.getElementById('controls-info').style.display = 'block';
@@ -1993,9 +2013,7 @@
         // --- Game Start Screen ---
         function showStartScreen() {
             // Hide game UI and show the message container
-            document.getElementById('game-info').style.display = 'none';
-            document.getElementById('gameCanvas').style.display = 'none';
-            document.getElementById('controls-info').style.display = 'none';
+            document.getElementById('game-container').style.display = 'none';
             
             const messageContainer = document.getElementById('message');
             const messageText = document.getElementById('message-text');
