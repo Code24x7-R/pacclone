@@ -1,4 +1,5 @@
-👻 Pacclone Arcade #2.1
+# 👻 Pacclone Arcade
+
 A classic arcade-style game reminiscent of Pac-Man, built entirely with HTML, CSS, and JavaScript in a single file! Navigate the maze, eat all the pellets, avoid the ghosts, and aim for the high score!
 
 ✨ Features
@@ -12,14 +13,22 @@ Adaptive Controls: Play with keyboard ⌨️, gamepad 🎮, or intuitive touch c
 Custom Sound Effects: Retro-inspired audio for chomping, power-ups, ghost eating, and more!
 Adjustable Game Speed: A slider to customize the game's pace to your liking.
 
+## Installation
+
+How to install:
+Review the index.html file, download and save it in a folder.
+
 🕹️ How to Play
+
 ## Objective
+
 Eat all the small pellets and power-ups in the maze while avoiding the ghosts. If you eat a power-up, ghosts become frightened and vulnerable – eat them for extra points before they recover!
 
 ## Controls
+
 The game automatically detects your input method and adjusts controls display.
 
-### Keyboard:
+### Keyboard
 
 Arrow Keys (↑ ↓ ← →): Move Pacclone
 Spacebar: Execute Phase Dash (once per life)
@@ -27,20 +36,20 @@ P: Pause/Unpause Game
 R: Reset Game
 M: Toggle Mute/Unmute Sound
 
-### Gamepad (Xbox/Standard Layout Recommended):
+### Gamepad (Xbox/Standard Layout Recommended)
 
 D-Pad or Left Analog Stick: Move Pacclone
 (A) Button: Execute Phase Dash (once per life)
 (Start) Button: Pause/Unpause Game
 (B) Button: Reset Game
 
-### Touch Controls (Mobile/Tablet):
+### Touch Controls (Mobile/Tablet)
 
 Virtual D-Pad: Move Pacclone
 DASH Button: Execute Phase Dash (once per life)
 (Note: Pause/Reset actions may require keyboard input or a connected gamepad)
 
-# Game Flow
+## Game Flow
 
 Start Screen: Shows high scores and a "Start Game" button.
 Gameplay: Control Pacclone, eat pellets, avoid/eat ghosts.
@@ -50,7 +59,7 @@ Level Complete: Clear all pellets to advance to a new, randomly generated maze.
 
 👨‍💻 Technical Details
 
-## This project is a single-file web game, leveraging:
+## This project is a single-file web game, leveraging
 
 HTML5: For the game structure and UI elements.
 CSS3: Minimal styling, with a retro arcade aesthetic.
