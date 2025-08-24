@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pacclone Arcade #2.11</title>
+    <title>Pacclone Arcade #2.12</title>
     <style>
         :root {
             --dpad-size: clamp(120px, 25vmin, 160px);
@@ -54,8 +54,18 @@
             flex-wrap: wrap; /* Allow wrapping for smaller screens */
             gap: 10px;
         }
-        #gamepad-status {
-            color: #aaa;
+        #control-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            color: #aaa; /* Default color for the icon */
+        }
+        #control-status svg {
+            width: 100%;
+            height: 100%;
+            fill: currentColor; /* Use the color from the parent */
         }
         #message {
             position: absolute;
@@ -305,7 +315,7 @@
             <div id="score">Score: 0</div>
             <div id="lives">Lives: 3</div>
             <div id="dash-status">Dash: Ready</div>
-            <div id="gamepad-status">Controller: Disconnected</div>
+            <div id="control-status" title="Active Control Method"></div>
             <div id="speed-control">
                 <label for="speed-slider">Speed:</label>
                 <input type="range" id="speed-slider" min="0.5" max="2" step="0.1" value="1" title="Adjust Game Speed">
@@ -315,7 +325,7 @@
         </div>
         <canvas id="gameCanvas" width="600" height="600"></canvas>
         <div id="controls-info">
-            Use Arrow Keys to Move | P to Pause | Space to Dash | R to Reset
+            Arrows: Move | Space: Dash | P: Pause | R: Reset | -/=: Speed
         </div>
     </div>
     <div id="message">
@@ -344,10 +354,16 @@
         const HIGH_SCORES_KEY = 'paccloneHighScores';
         const MAX_HIGH_SCORES = 10;
         const GHOST_RELEASE_THRESHOLDS = {
-            'blinky': 5,
+            'blinky': 0, // Blinky starts outside
             'pinky': 15,
             'inky': 30,
             'clyde': 50
+        };
+
+        const ICONS = {
+            keyboard: `<svg viewBox="0 0 24 24" fill="currentColor" title="Keyboard"><path d="M15.5 13.5h-7v-3h7v3z M12 3L9.5 7h5L12 3zm0 18l2.5-4h-5L12 21zM21 12l-4 2.5v-5L21 12zM3 12l4-2.5v5L3 12z"/></svg>`,
+            touch: `<svg viewBox="0 0 24 24" fill="currentColor" title="Touch Controls"><path d="M15 9v-4h-6v4H5v6h4v4h6v-4h4V9h-4z"/></svg>`,
+            gamepad: `<svg viewBox="0 0 24 24" fill="currentColor" title="Gamepad"><path d="M9.5,5.5 C 5.5,5.5 5.5,9 2,9 L 2,15 C 5.5,15 5.5,18.5 9.5,18.5 H 14.5 C 18.5,18.5 18.5,15 22,15 V 9 C 18.5,9 18.5,5.5 14.5,5.5 H 9.5 Z M8 11H5v2h3v3h2v-3h3v-2h-3V8h-2v3z M 15,10 a 1 1 0 1 0 2 0 a 1 1 0 1 0 -2 0 z M 17,12 a 1 1 0 1 0 2 0 a 1 1 0 1 0 -2 0 z"/></svg>`
         };
 
         // Map Legend:
@@ -389,13 +405,14 @@
         let lives = 3;
         let highScores = [];
         let pelletsRemaining;
-        let pelletsEatenThisLife = 0;
+        let totalPelletsInLevel = 0;
         let gameRunning = false;
         let paused = false;
         let isGameOver = false;
         let gameOverTimer = 0;
         let ghostFrightenedTimer = 0;
         let nextHighScoreThreshold = 5000;
+        let nextExtraLifeScore = 5000;
         const FRIGHTENED_DURATION = 8000; // 8 seconds
         const GHOST_FRIGHTENED_SPEED_MULTIPLIER = 0.5;
         const GHOST_NORMAL_SPEED_MULTIPLIER = 0.8; // Slightly slower than Pac-Man
@@ -429,6 +446,7 @@
         // --- Gamepad State ---
         let gamepadIndex = null;
         let lastButtons = [];
+        let isTouchDevice = 'ontouchstart' in window;
 
         // --- Audio Context & Sounds ---
         let audioContext;
@@ -460,7 +478,7 @@
                 // Create the context if it doesn't exist.
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
             } catch (e) {
-                console.error("Web Audio API is not supported in this browser.");
+                console.error("Web Audio API is not supported in this browser :(.");
             }
         }
 
@@ -485,7 +503,7 @@
             // A fast attack and decay envelope makes the sound "plucky" or "sucky".
             gainNode.gain.setValueAtTime(0, now);
             gainNode.gain.linearRampToValueAtTime(0.1, now + 0.02); // Quick attack
-            gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration); // Fast decay
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration ); // Fast decay
 
             oscillator.start(now);
             oscillator.stop(now + duration);
@@ -583,7 +601,7 @@
         function playDeathSound() {
             if (isMuted || !audioContext) return;
             const now = audioContext.currentTime;
-            const duration = 0.6; // 600ms
+            const duration = .9; // 900ms
 
             const oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
@@ -608,7 +626,7 @@
             if (isMuted || !audioContext) return;
             const now = audioContext.currentTime;
             const durationPerNote = 0.25;
-            const notes = [220, 165, 110, 55]; // Descending arpeggio
+            const notes = [330, 220, 165, 110, 55]; // Descending arpeggio
             const volume = 0.4;
 
             notes.forEach((freq, index) => {
@@ -635,7 +653,7 @@
         function playDashSound() {
             if (isMuted || !audioContext) return;
             const now = audioContext.currentTime;
-            const duration = 0.3; // 300ms
+            const duration = 0.4; // 300ms
 
             // --- Tonal Part (the whoosh) ---
             const oscillator = audioContext.createOscillator();
@@ -742,34 +760,66 @@
             });
         }
 
+        function playExtraLifeSound() {
+            if (isMuted || !audioContext) return;
+            const now = audioContext.currentTime;
+            const durationPerNote = 0.09;
+            // Ascending notes for a "1-UP" feel
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            const volume = 0.4;
+
+            notes.forEach((freq, index) => {
+                const startTime = now + index * durationPerNote;
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.type = 'square'; // Classic arcade sound
+                oscillator.frequency.setValueAtTime(freq, startTime);
+
+                gainNode.gain.setValueAtTime(0, startTime);
+                gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + durationPerNote);
+
+                oscillator.start(startTime);
+                oscillator.stop(startTime + durationPerNote);
+            });
+        }
+
         function playStartSound() {
             if (isMuted || !audioContext) return;
             const now = audioContext.currentTime;
             const startTime = now + 0.1;
             const volume = 0.35;
 
-            // intro jingle
-            const tempo = 150; // BPM
-            const eighthNote = 60 / tempo / 2;
+            // Exciting Arcade Jingle v1
+const tempo = 160; // Slightly faster BPM for more energy
+const eighthNote = 60 / tempo / 2;
 
-            const notes = [
-                { freq: 466.16, dur: eighthNote }, // A#4/Bb4
-                { freq: 0, dur: eighthNote/2 }, // Rest
-                { freq: 932.33, dur: eighthNote }, // A#5/Bb5
-                { freq: 783.99, dur: eighthNote }, // G5
-                { freq: 698.46, dur: eighthNote }, // F5
-                { freq: 622.25, dur: eighthNote }, // D#5/Eb5
-                { freq: 0, dur: eighthNote/2 }, // Rest
-                { freq: 698.46, dur: eighthNote }, // F5
-                { freq: 622.25, dur: eighthNote }, // D#5/Eb5
-                { freq: 523.25, dur: eighthNote }, // C5
-                { freq: 466.16, dur: eighthNote }, // A#4/Bb4
-                { freq: 0, dur: eighthNote/2 }, // Rest
-                { freq: 523.25, dur: eighthNote }, // C5
-                { freq: 466.16, dur: eighthNote }, // A#4/Bb4
-                { freq: 392.00, dur: eighthNote }, // G4
-                { freq: 349.23, dur: eighthNote * 2 } // F4
-            ];
+// 1. A stronger, higher starting note grabs attention.
+// 2. The final note is changed to a strong tonic (C5) held longer for resolution.
+const notes = [
+    { freq: 932.33, dur: eighthNote }, // A5 - A higher, brighter start!
+    { freq: 0, dur: eighthNote/2 },
+    { freq: 932.33, dur: eighthNote }, // A5
+    { freq: 783.99, dur: eighthNote }, // G5
+    { freq: 698.46, dur: eighthNote }, // F5
+    { freq: 622.25, dur: eighthNote }, // D#5/Eb5
+    { freq: 0, dur: eighthNote/2 },
+    { freq: 698.46, dur: eighthNote }, // F5
+    { freq: 622.25, dur: eighthNote }, // D#5/Eb5
+    { freq: 523.25, dur: eighthNote }, // C5
+    { freq: 466.16, dur: eighthNote }, // A#4/Bb4
+    { freq: 0, dur: eighthNote/2 },
+    { freq: 523.25, dur: eighthNote }, // C5
+    { freq: 466.16, dur: eighthNote }, // A#4/Bb4
+    { freq: 392.00, dur: eighthNote }, // G4
+    { freq: 523.25, dur: eighthNote * 3 } // C5 - A strong, resolved finish!
+];
+
 
             let cumulativeTime = startTime;
 
@@ -872,7 +922,10 @@
 
             const form = document.getElementById('highscore-form');
             const input = document.getElementById('name-input');
-            input.focus();
+            
+            messageContainer.style.display = 'flex';
+            // Use setTimeout to ensure the element is visible and focusable before trying to focus.
+            setTimeout(() => input.focus(), 0);
 
             input.addEventListener('input', () => {
                 input.value = input.value.toUpperCase().replace(/[^A-Z_]/g, '');
@@ -884,8 +937,6 @@
                 saveHighScore(playerName, playerScore);
                 showStartScreen();
             });
-
-            messageContainer.style.display = 'flex';
         }
 
 
@@ -911,6 +962,7 @@
                 score = 0;
                 lives = 3;
                 nextHighScoreThreshold = 5000; // Reset high score threshold
+                nextExtraLifeScore = 5000; // Reset extra life threshold
             }
 
             map = INITIAL_MAP.map(row => [...row]); // Deep copy the map
@@ -936,7 +988,7 @@
             };
 
             ghosts = [
-                { id: 'blinky', x: 9.5 * TILE_SIZE, y: 8.5 * TILE_SIZE, color: 'red', originalColor: 'red', frightened: false, eaten: false, speed: GHOST_NORMAL_SPEED_MULTIPLIER, originalX: 9.5 * TILE_SIZE, originalY: 8.5 * TILE_SIZE, dx: 0, dy: 0, state: 'inHouse', idleTimer: Math.random() * 1000, reReleaseTimer: 0 },
+                { id: 'blinky', x: 9.5 * TILE_SIZE, y: 8.5 * TILE_SIZE, color: 'red', originalColor: 'red', frightened: false, eaten: false, speed: GHOST_NORMAL_SPEED_MULTIPLIER, originalX: 9.5 * TILE_SIZE, originalY: 8.5 * TILE_SIZE, dx: 0, dy: 0, state: 'scatter', idleTimer: Math.random() * 1000, reReleaseTimer: 0 },
                 { id: 'pinky', x: 9.5 * TILE_SIZE, y: 9.5 * TILE_SIZE, color: 'pink', originalColor: 'pink', frightened: false, eaten: false, speed: GHOST_NORMAL_SPEED_MULTIPLIER, originalX: 9.5 * TILE_SIZE, originalY: 9.5 * TILE_SIZE, dx: 0, dy: 0, state: 'inHouse', idleTimer: Math.random() * 1000, reReleaseTimer: 0 },
                 { id: 'inky', x: 8.5 * TILE_SIZE, y: 9.5 * TILE_SIZE, color: 'cyan', originalColor: 'cyan', frightened: false, eaten: false, speed: GHOST_NORMAL_SPEED_MULTIPLIER, originalX: 8.5 * TILE_SIZE, originalY: 9.5 * TILE_SIZE, dx: 0, dy: 0, state: 'inHouse', idleTimer: Math.random() * 1000, reReleaseTimer: 0 },
                 { id: 'clyde', x: 10.5 * TILE_SIZE, y: 9.5 * TILE_SIZE, color: 'orange', originalColor: 'orange', frightened: false, eaten: false, speed: GHOST_NORMAL_SPEED_MULTIPLIER, originalX: 10.5 * TILE_SIZE, originalY: 9.5 * TILE_SIZE, dx: 0, dy: 0, state: 'inHouse', idleTimer: Math.random() * 1000, reReleaseTimer: 0 }
@@ -950,9 +1002,10 @@
                     }
                 }
             }
+            totalPelletsInLevel = pelletsRemaining;
+
 
             ghostFrightenedTimer = 0;
-            pelletsEatenThisLife = 0;
 
             // Reset ghost mode timer
             modeCycleIndex = 0;
@@ -1087,6 +1140,7 @@
 
             // --- Ghost Release Management ---
             if (gameRunning && !paused) {
+                const totalPelletsEaten = totalPelletsInLevel - pelletsRemaining;
                 ghosts.forEach(ghost => {
                     if (ghost.state === 'inHouse') {
                         // Case 1: Ghost has been eaten and is on a re-release timer.
@@ -1103,7 +1157,7 @@
                         // Case 2: Ghost is waiting for initial release based on pellets eaten.
                         else {
                             const threshold = GHOST_RELEASE_THRESHOLDS[ghost.id];
-                            if (threshold !== undefined && pelletsEatenThisLife >= threshold) {
+                            if (threshold !== undefined && totalPelletsEaten >= threshold) {
                                 // Snap position to prevent getting stuck due to animation bobble
                                 ghost.x = ghost.originalX;
                                 ghost.y = ghost.originalY;
@@ -1444,7 +1498,13 @@
                 // Ghost has reached the exit tile
                 ghost.x = exitTargetX; // Snap to the center of the exit tile
                 ghost.y = exitTargetY;
-                ghost.state = ghostMode; // Enter the current global mode (scatter or chase)
+                // If a power-up is active, the ghost should emerge frightened.
+                if (ghostFrightenedTimer > 0) {
+                    ghost.state = 'frightened';
+                    // The frightened flag and speed were already set when the pellet was eaten.
+                } else {
+                    ghost.state = ghostMode; // Enter the current global mode (scatter or chase)
+                }
             }
 
 
@@ -1655,10 +1715,12 @@
                     ghost.dy = 0;
                 }
             }
-
-            // Move ghost based on its current dx/dy
-            ghost.x += ghost.dx * moveAmount;
-            ghost.y += ghost.dy * moveAmount;
+            
+            // Move ghost based on its current dx/dy, but only if it won't collide.
+            if ((ghost.dx !== 0 || ghost.dy !== 0) && !isCollisionWithWall(ghost.x, ghost.y, ghost.dx, ghost.dy, ghostRadius, moveAmount)) {
+                ghost.x += ghost.dx * moveAmount;
+                ghost.y += ghost.dy * moveAmount;
+            }
 
             // Handle Teleportation (tunnels)
             if (ghost.x < 0) ghost.x = canvas.width + ghost.x;
@@ -1680,24 +1742,26 @@
                     score += 50;
                     playPowerupSound();
                     playedChompThisFrame = true;
+                    ghostFrightenedTimer = FRIGHTENED_DURATION;
                     ghosts.forEach(ghost => {
-                        // Ghosts are only frightened if they are outside of the ghost house.
-                        if (ghost.state !== 'eaten' && ghost.state !== 'inHouse' && ghost.state !== 'exitingHouse') {
+                        // Frighten any ghost that hasn't been eaten.
+                        if (ghost.state !== 'eaten') {
                             ghost.frightened = true;
                             ghost.speed = GHOST_FRIGHTENED_SPEED_MULTIPLIER;
-                            // Reverse ghost direction when frightened
-                            ghost.dx = -ghost.dx;
-                            ghost.dy = -ghost.dy;
-                            ghost.state = 'frightened'; // Set state to frightened
+                            // Immediately reverse direction and change state only if actively roaming the maze.
+                            if (ghost.state === 'chase' || ghost.state === 'scatter') {
+                                ghost.dx = -ghost.dx;
+                                ghost.dy = -ghost.dy;
+                                ghost.state = 'frightened';
+                            }
+                            // Ghosts 'inHouse' or 'exitingHouse' will now appear blue,
+                            // and their state will be handled correctly upon exiting the house.
                         }
                     });
-                    ghostFrightenedTimer = FRIGHTENED_DURATION;
                 }
                 map[tileY][tileX] = 4; // Mark as empty
                 pelletsRemaining--;
                 updateScoreDisplay();
-
-                pelletsEatenThisLife++;
             }
         }
 
@@ -1755,6 +1819,7 @@
 
 
             ghosts.forEach(ghost => {
+                const wasOutside = ghost.state !== 'inHouse';
                 ghost.x = ghost.originalX;
                 ghost.y = ghost.originalY;
                 ghost.dx = 0;
@@ -1762,12 +1827,15 @@
                 ghost.frightened = false;
                 ghost.eaten = false;
                 ghost.speed = GHOST_NORMAL_SPEED_MULTIPLIER;
-                ghost.state = 'inHouse';
+                // Only reset state to 'inHouse' if it's not Blinky or if it was eaten and returned
+                if (ghost.id !== 'blinky' || wasOutside) {
+                     ghost.state = 'inHouse';
+                } else {
+                     ghost.state = 'scatter'; // Blinky starts outside
+                }
                 ghost.reReleaseTimer = 0;
             });
             ghostFrightenedTimer = 0;
-            pelletsEatenThisLife = 0;
-
 
             // Reset ghost mode timer
             modeCycleIndex = 0;
@@ -1816,9 +1884,10 @@
             // Handle horizontal wrapping for the target tile (tunnels)
             if (targetTileX < 0) targetTileX = MAP_WIDTH + targetTileX;
             else if (targetTileX >= MAP_WIDTH) targetTileX = targetTileX - MAP_WIDTH;
-
-            // Check if the dash is valid (not off-map vertically or into a wall)
-            if (targetTileY < 0 || targetTileY >= MAP_HEIGHT || map[targetTileY][targetTileX] === 1) {
+            
+            // Check if the dash is valid (not off-map vertically or into a solid wall)
+            // Allow dashing into ghost house interior tiles (0, 6)
+            if (targetTileY < 0 || targetTileY >= MAP_HEIGHT || (map[targetTileY][targetTileX] === 1)) {
                 // Play a fail sound or visual effect here if desired, but for now, just do nothing.
                 return;
             }
@@ -1991,11 +2060,59 @@
             localStorage.setItem(CONTROLS_PREFERENCE_KEY, isLeftHanded ? 'left' : 'right');
         }
 
+        function updateControlStatus(controlType) {
+            const statusEl = document.getElementById('control-status');
+            const controlsEl = document.getElementById('controls-info');
+            const startInfo = document.getElementById('start-gamepad-info');
+            if (!statusEl) return;
+
+            switch (controlType) {
+                case 'gamepad':
+                    statusEl.innerHTML = ICONS.gamepad;
+                    statusEl.style.color = 'lime';
+                    if (controlsEl) controlsEl.textContent = 'D-Pad/Stick: Move | (A): Dash | (Start): Pause | (B): Reset';
+                    if (startInfo && !gameRunning) {
+                        startInfo.textContent = 'Controller Ready! Press Start or (A) to Play.';
+                        startInfo.style.color = 'lime';
+                    }
+                    break;
+                case 'touch':
+                    statusEl.innerHTML = ICONS.touch;
+                    statusEl.style.color = '#fff';
+                    if (controlsEl) controlsEl.textContent = 'D-Pad: Move | DASH: Dash | P: Pause | R: Reset | -/=: Speed';
+                    if (startInfo && !gameRunning) {
+                        startInfo.textContent = 'Connect controller and press a button to activate';
+                        startInfo.style.color = '#aaa';
+                    }
+                    break;
+                case 'keyboard':
+                default:
+                    statusEl.innerHTML = ICONS.keyboard;
+                    statusEl.style.color = '#fff';
+                    if (controlsEl) controlsEl.textContent = 'Arrows: Move | Space: Dash | P: Pause | R: Reset | -/=: Speed';
+                    if (startInfo && !gameRunning) {
+                        startInfo.textContent = 'Connect controller and press a button to activate';
+                        startInfo.style.color = '#aaa';
+                    }
+                    break;
+            }
+        }
+
         function updateScoreDisplay() {
             document.getElementById('score').textContent = `Score: ${score}`;
+            
+            // Check for extra life
+            if (score >= nextExtraLifeScore) {
+                lives++;
+                updateLivesDisplay();
+                playExtraLifeSound();
+                // Set the next threshold. This handles scores that might jump over multiple thresholds at once.
+                nextExtraLifeScore += 5000;
+            }
+
+            // Check for high score sound (keep this separate)
             if (score >= nextHighScoreThreshold) {
                 playHighScoreSound();
-                // Set the next threshold. This handles scores that might jump over multiple thresholds at once.
                 nextHighScoreThreshold = (Math.floor(score / 5000) + 1) * 5000;
             }
         }
@@ -2029,7 +2146,7 @@
             
             messageButtons.innerHTML = ''; // Clear just in case
             const startButton = document.createElement('button');
-            startButton.textContent = 'Start Game';
+            startButton.textContent = 'Start Game (Enter)';
             
             startButton.onclick = () => {
                 // This is our trusted user gesture
@@ -2042,7 +2159,7 @@
             messageButtons.appendChild(startButton);
 
             // Only show the switch button on touch devices
-            if ('ontouchstart' in window) {
+            if (isTouchDevice) {
                 const switchControlsButton = document.createElement('button');
                 switchControlsButton.textContent = 'Switch Controls';
                 switchControlsButton.title = 'Swap D-Pad and Dash button for left/right hand preference';
@@ -2055,7 +2172,7 @@
 
         // --- Touch Controls Setup ---
         function setupTouchControls() {
-            if (!('ontouchstart' in window)) {
+            if (!isTouchDevice) {
                 return;
             }
 
@@ -2065,11 +2182,9 @@
             const dpadLeft = document.getElementById('dpad-left');
             const dpadRight = document.getElementById('dpad-right');
             const dashButton = document.getElementById('dash-button-touch');
-            const controlsInfo = document.getElementById('controls-info');
-
+            
             touchControls.style.display = 'block';
-            controlsInfo.textContent = 'D-Pad: Move | DASH: Dash | P: Pause | R: Reset';
-
+            
             const handleDpadPress = (e, direction) => {
                 e.preventDefault();
                 pacman.nextDirection = direction;
@@ -2110,36 +2225,6 @@
             DPAD_RIGHT: 15,
         };
         
-        function updateGamepadStatus(connected, name = '') {
-            // Update in-game UI
-            const statusEl = document.getElementById('gamepad-status');
-            const controlsEl = document.getElementById('controls-info');
-            if (connected) {
-                statusEl.textContent = `Controller: Connected`;
-                statusEl.style.color = 'lime';
-                controlsEl.textContent = 'D-Pad/Stick: Move | (A): Dash | (Start): Pause | (B): Reset';
-            } else {
-                statusEl.textContent = 'Controller: Disconnected';
-                statusEl.style.color = '#aaa';
-                 // Don't overwrite touch controls text if touch is enabled
-                if (!('ontouchstart' in window)) {
-                    controlsEl.textContent = 'Use Arrow Keys to Move | P to Pause | Space to Dash | R to Reset';
-                }
-            }
-        
-            // Also update start-screen UI if it exists and game is not running
-            const startInfo = document.getElementById('start-gamepad-info');
-            if (startInfo && !gameRunning) {
-                if (connected) {
-                    startInfo.textContent = 'Controller Ready! Press Start or (A) to Play.';
-                    startInfo.style.color = 'lime';
-                } else {
-                    startInfo.textContent = 'Connect controller and press a button to activate';
-                    startInfo.style.color = '#aaa';
-                }
-            }
-        }
-
         function setupGamepadListeners() {
             window.addEventListener("gamepadconnected", (e) => {
                 console.log(`[GP_EVENT] Gamepad connected at index ${e.gamepad.index}: ${e.gamepad.id}`);
@@ -2147,7 +2232,8 @@
             window.addEventListener("gamepaddisconnected", (e) => {
                 console.log(`[GP_EVENT] Gamepad disconnected from index ${e.gamepad.index}: ${e.gamepad.id}`);
                 if (e.gamepad.index === gamepadIndex) {
-                    updateGamepadStatus(false);
+                    gamepadIndex = null;
+                    updateControlStatus(isTouchDevice ? 'touch' : 'keyboard');
                 }
             });
         }
@@ -2187,12 +2273,13 @@
             if (gamepad) {
                 if (gamepadIndex !== gamepad.index) {
                     gamepadIndex = gamepad.index;
-                    updateGamepadStatus(true, gamepad.id);
+                    updateControlStatus('gamepad');
                     lastButtons = gamepad.buttons.map(b => (b ? b.pressed : false));
                 }
             } else {
                 if (gamepadIndex !== null) {
-                    updateGamepadStatus(false);
+                    gamepadIndex = null;
+                    updateControlStatus(isTouchDevice ? 'touch' : 'keyboard');
                 }
                 return;
             }
@@ -2263,18 +2350,32 @@
             lastButtons = activeGamepad.buttons.map(b => (b ? b.pressed : false));
         }
 
+        function adjustSpeed(delta) {
+            const speedSlider = document.getElementById('speed-slider');
+            if (!speedSlider) return;
+
+            let currentValue = parseFloat(speedSlider.value);
+            let newValue = currentValue + delta;
+            
+            // Clamp the value to the slider's min/max and round to one decimal place to avoid floating point issues
+            const min = parseFloat(speedSlider.min);
+            const max = parseFloat(speedSlider.max);
+            newValue = Math.round(Math.max(min, Math.min(max, newValue)) * 10) / 10;
+
+            // Update the slider and game state
+            speedSlider.value = newValue;
+            gameSpeedMultiplier = newValue;
+            
+            // Update the text display
+            const speedValue = document.getElementById('speed-value');
+            if (speedValue) {
+                speedValue.textContent = `${gameSpeedMultiplier.toFixed(1)}x`;
+            }
+        }
+
         // --- Event Listeners ---
         document.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 'm') {
-                toggleMute();
-            }
-
             if (e.target.tagName.toLowerCase() === 'input') {
-                return;
-            }
-
-            if (e.key.toLowerCase() === 'r') {
-                initGame(false);
                 return;
             }
             
@@ -2282,7 +2383,32 @@
                 return; // Prevent actions during game over sequence
             }
 
+            // Handle global keys that work even when game isn't "running" (e.g., on start screen)
+            if (e.key === 'm' || e.key === 'M') {
+                toggleMute();
+            }
+            if (e.key === '-' || e.key === '_') {
+                adjustSpeed(-0.1);
+            }
+            if (e.key === '=' || e.key === '+') {
+                adjustSpeed(0.1);
+            }
+
+            // Handle start screen input
             if (!gameRunning) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    const startButton = document.querySelector('#message-buttons button');
+                    if (startButton) {
+                        startButton.click();
+                    }
+                }
+                return;
+            }
+
+            // Handle in-game keys
+            if (e.key.toLowerCase() === 'r') {
+                initGame(false);
                 return;
             }
 
@@ -2335,6 +2461,7 @@
                 muteButton.addEventListener('click', toggleMute);
             }
             updateMuteButtonDisplay();
+            updateControlStatus(isTouchDevice ? 'touch' : 'keyboard');
             
             const speedSlider = document.getElementById('speed-slider');
             const speedValue = document.getElementById('speed-value');
