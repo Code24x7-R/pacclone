@@ -17,6 +17,7 @@ Adjustable Game Speed: A slider to customize the game's pace to your liking.
 
 How to install:
 Review the index.html file, download and save it in a folder.
+Try is here: <https://code24x7-r.github.io/pacclone/>
 
 🕹️ How to Play
 
