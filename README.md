@@ -17,7 +17,7 @@ Adjustable Game Speed: A slider to customize the game's pace to your liking.
 
 How to install:
 Review the index.html file, download and save it in a folder.
-Try is here: <https://code24x7-r.github.io/pacclone/>
+Try it here: <https://code24x7-r.github.io/pacclone/>
 
 🕹️ How to Play
 
@@ -75,3 +75,4 @@ Bonus Items: Fruit or other collectibles appearing randomly for extra points.
 Multi-Level Progression: Define a sequence of levels with increasing difficulty or unique maze layouts.
 Graphical Improvements: More detailed sprites or animations for Pacclone and ghosts.
 Enhanced Sound Design: More complex soundscapes and background music.
+
